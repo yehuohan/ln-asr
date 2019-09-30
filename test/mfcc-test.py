@@ -29,12 +29,12 @@ def get_voice_raw(filepath)->np.ndarray:
 if __name__ == "__main__":
     mfcc = MFCC(
             fs=16000,
-            T=25e-3,
-            stride=10e-3,
-            alpha=0.97,
-            N=512,
-            m_num=40,
-            c_num=12
+            frame_T=25e-3,
+            frame_stride=10e-3,
+            hpf_alpha=0.97,
+            fft_N=512,
+            mfbank_num=40,
+            cepstrum_num=12
             )
 
     vr = get_voice_raw("data.raw").astype(dtype=np.float, copy=False)    # 语音信号数据

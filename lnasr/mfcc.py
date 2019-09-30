@@ -3,10 +3,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Mel Frequency Cepstrum Coefficient.
-
-Ref:
- - https://haythamfayek.com/2016/04/21/speech-processing-for-machine-learning.html
+梅尔频率倒谱系数(Mel Frequency Cepstrum Coefficient)
 """
 
 import numpy as np
@@ -16,51 +13,46 @@ class MFCC:
     """
     提取MFCC特征。
     """
-    def __init__(self, **kwargs):
-        self.fs = 16000                 # 采样频率Hz(frequency sample)
-        self.frame_T = 25e-3            # 一帧25ms
-        self.frame_L = int(self.fs * self.frame_T)      # 一帧长度(frame length)，一帧数据点数
-        self.frame_stride = 10e-3       # 帧移10ms（重叠15ms）
-        self.frame_step = int(self.fs * self.frame_stride)      # 帧的间隔，间隔数据点数
-        self.hpf_alpha = 0.97           # 一阶高通滤波参数
-        self.fft_N = 512                # FFT的宽度
+    def __init__(self, fs = 16000,
+            frame_T = 25e-3, frame_stride = 10e-3,
+            hpf_alpha = 0.97,
+            fft_N = 512,
+            mfbank_num = 40, cepstrum_num = 12):
+        """初始MFCC参数
+
+        :Parameters:
+            - fs: 采样频率Hz(frequency sample)
+            - frame_T: 一帧时间长度，默认25ms
+            - frame_stride: 默认帧移10ms（重叠15ms）
+            - hpf_alpha: 一阶高通滤波参数
+            - fft_N: FFT的宽度
+            - mfbank_num: 滤波器组个数（Filter Bank）
+            - cepstrum_num: 抽取倒谱值个数
+        """
+        self.fs = fs
+        self.frame_T = frame_T
+        self.frame_L = int(self.fs * self.frame_T)  # 一帧长度(frame length)，一帧数据点数
+        self.frame_stride = frame_stride
+        self.frame_step = int(self.fs * self.frame_stride)  # 帧的间隔，间隔数据点数
+        self.hpf_alpha = hpf_alpha
+        self.fft_N = fft_N
         self.fft_size = self.fft_N // 2 + 1     # FFT频谱的使用宽度
-        self.mfbank_num = 40            # 滤波器组个数（Filter Bank）
-        self.cepstrum_num = 12          # 抽取倒谱值个数
-        self.init_mfcc(**kwargs)
-
-    def init_mfcc(self, **kwargs):
-        """MFCC参数初始化"""
-        if 'fs' in kwargs:
-            self.fs = kwargs['fs']
-        if 'T' in kwargs:
-            self.frame_T = kwargs['T']
-        if 'stride' in kwargs:
-            self.frame_stride = kwargs['stride']
-        self.frame_L = int(self.fs * self.frame_T)
-        self.frame_step = int(self.fs * self.frame_stride)
-
-        if 'alpha' in kwargs:
-            self.hpf_alpha = kwargs['alpha']
-        if 'N' in kwargs:
-            self.fft_N = kwargs['N']
-            self.fft_size = self.fft_N // 2 + 1
-        if 'm_num' in kwargs:
-            self.mfbank_num = kwargs['m_num']
-        if 'c_num' in kwargs:
-            self.cepstrum_num = kwargs['c_num']
+        self.mfbank_num = mfbank_num
+        self.cepstrum_num = cepstrum_num
 
     def calc_high_pass_filter(self, signal:np.ndarray, alpha)->np.ndarray:
         """对信号进行高通滤
+
         公式如下：
-        y(t) = x(t) - a * x(t-1)
+
+        ..  math::
+            y(t) = x(t) - \\alpha \cdot x(t-1)
 
         :Parameters:
-        - signal 需要滤波的信号
-        - alpha 一阶高通滤波参数
+            - signal 需要滤波的信号
+            - alpha 一阶高通滤波参数
 
-        :Returns:
-        滤波后的信号
+        :Returns: 滤波后的信号
         """
         signal_hpf = np.append(signal[0], np.array(signal[1:] - alpha * signal[:-1]))
         return signal_hpf
@@ -85,13 +77,17 @@ class MFCC:
 
     def create_hamming(self, N)->np.ndarray:
         """生成宽度为N个点的汉明窗
+
         公式如下（N为窗长度）：
-            w(n) = 0.54 - 0.46 * cos(2 * pi * n / (N - 1))
+
+        ..  math::
+            w(n) = 0.54 - 0.46 \cdot cos(2 \cdot pi \cdot \cfrac{n}{N - 1})
         """
         return (0.54 - 0.46 * np.cos(2 * np.pi * np.arange(N) / (N - 1)))
 
     def calc_mel(self, hz:np.ndarray):
         """由Hertz频率计算Mel频率
+
         人耳对高频部分不太敏感，将频率转成Mel频率，当对Mel频率等距处理时，则原
         频率在高频部分的间距就很大。
         """
@@ -103,14 +99,15 @@ class MFCC:
 
     def create_filter_bank(self, M, N)->np.ndarray:
         """生成Mel滤波器组(Filter Bank)。
+
         滤波器对应的Hertz频率范围为[0, fs/2]；
         在Mel频率范围内，滤波器组是等带宽的；
         每个滤波器收集来自给定频率范围内的能量；
         因为是用于对信号的频谱滤波，因而每个滤波器宽度与fft_size相同。
 
         :Parameters:
-        - M 滤波器组个数
-        - N 信号FFT的宽度
+            - M 滤波器组个数
+            - N 信号FFT的宽度
         """
         # 计算每个滤波组（共M个）Hertz频率的起始和终止点
         hz_freq = self.calc_mel_inv(
@@ -134,6 +131,7 @@ class MFCC:
 
     def calc_mfcc(self, signal:np.ndarray):
         """计算MFCC特征
+
         - 预加重
             使用一阶高通滤波，增加高频段的能量；
         - 分帧
@@ -148,10 +146,9 @@ class MFCC:
             倒谱是声谱对数的声谱，即对声音能量谱的对数做DFT；
 
         :Parameters:
-        - signal 语音信号数据
+            - signal 语音信号数据
 
-        :Returns:
-        返回MFCC特征
+        :Returns: 返回MFCC特征
         """
         # 预加重
         signal_hpf = self.calc_high_pass_filter(signal, self.hpf_alpha)
