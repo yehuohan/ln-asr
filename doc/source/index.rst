@@ -6,14 +6,15 @@
 Welcome to ln-asr's documentation!
 ==================================
 
-语音识别基础学习。
+语音识别基础。
 
 :目录:
 
-.. toctree::
-   :maxdepth: 2
+..  toctree::
+    :maxdepth: 2
 
-   mfcc
+    basic
+    mfcc
 
 Indices and tables
 ==================

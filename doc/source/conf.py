@@ -25,7 +25,6 @@ author = 'yehuohan@gmail.com'
 # Sphinx扩展模块
 extensions = [
     'sphinx.ext.autodoc',
-    'm2r',
 ]
 
 # 模版路径
