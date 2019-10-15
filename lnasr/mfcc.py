@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
@@ -168,7 +167,7 @@ class MFCC:
 
         # STFT
         frames_magnitude = np.abs(np.fft.rfft(frames_signal, self.fft_N))
-        frames_power = ((1.0 / self.fft_N) * (frames_magnitude ** 2))
+        frames_power = ((1.0 / self.fft_N) * (frames_magnitude ** 2))   # 帕塞瓦尔定理
 
         # Mel Filter Bank
         mfbank = self.create_filter_bank()
