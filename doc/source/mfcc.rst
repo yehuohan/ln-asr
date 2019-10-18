@@ -95,9 +95,3 @@ MFCC是一个特征矢量，用于表示一帧（如25ms）语音的信息。
 
 - `speech-processing-for-machine-learning <https://haythamfayek.com/2016/04/21/speech-processing-for-machine-learning.html>`_
 - `Speech and Language Processing <https://web.stanford.edu/~jurafsky/slp3>`_
-
-API
----
-
-.. automodule:: mfcc
-   :members:

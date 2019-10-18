@@ -15,6 +15,8 @@ Welcome to ln-asr's documentation!
 
     basic
     mfcc
+    hmm
+    api
 
 Indices and tables
 ==================
