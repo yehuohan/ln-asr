@@ -8,6 +8,12 @@ lnasr.hmm
 .. automodule:: hmm
    :members:
 
+lnasr.gmm
+----------
+
+.. automodule:: gmm
+   :members:
+
 lnasr.mfcc
 ----------
 

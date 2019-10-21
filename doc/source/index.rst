@@ -14,8 +14,9 @@ Welcome to ln-asr's documentation!
     :maxdepth: 2
 
     basic
-    mfcc
     hmm
+    gmm
+    mfcc
     api
 
 Indices and tables
