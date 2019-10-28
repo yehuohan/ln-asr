@@ -15,3 +15,11 @@
 
     phones -> syllable -> word
     音素   -> 音节     -> 字
+
+对于给定的声学输入 :math:`O` ，在语言 :math:`L` 的所有句子 :math:`W` 中，我们要计算最可能的句子:
+
+..  math::
+    \hat{W} = \underset{W \in L}{argmax} P(W|O)
+
+..  image:: basic/mod.png
+    :align: center
