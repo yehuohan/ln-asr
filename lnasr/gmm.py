@@ -52,14 +52,15 @@ def gaussian_mixture_distribution(c:np.ndarray, x:np.ndarray, mu:np.ndarray, Sig
 
     :Parameters:
         - c: 混合系统（Mx1）
-        - x: 自变量（MxLxD）
+        - x: 自变量（LxD）
         - mu: 均值（MxD）
         - Sigma: 协方差矩阵（MxDxD)
 
     :Returns: 正态分布的值
     """
-    M, L, D = x.shape
+    M = c.shape[0]
+    L, D = x.shape
     val = np.empty((M, L), dtype=np.float)
     for k in np.arange(M):
-        val[k] = gaussian_multi_distribution(x[k], mu[k], Sigma[k])
+        val[k] = gaussian_multi_distribution(x, mu[k], Sigma[k])
     return np.dot(c.reshape(1, M), val)

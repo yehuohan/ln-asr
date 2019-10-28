@@ -50,7 +50,7 @@ HMM
 向后算法（Backward algorithm）
 ------------------------------
 
-向后算法同样用于计算似然度问题，与Forward算法类似，只是从后面算起。
+向后算法与Forward算法类似，只是从后面算起，表示从 :math:`t` 时刻开始到 :math:`T` 的序列，在 :math:`t` 时刻状态为 :math:`i` 的概率。
 
 递归式如下：
 
@@ -87,8 +87,6 @@ Viterbi网络示意图：
 Baum-Welch算法
 --------------
 
-..  向前向后算法（Forward-backward algorithm）
-
 Baum-Welch算法，用于学习训练问题。
 
 - 若训练样本中每个观察序列 :math:`O` 对应的状态序列已知，则可以通过频数统计计算：
@@ -99,15 +97,25 @@ Baum-Welch算法，用于学习训练问题。
 
 - 训练样本中每个观测序列 :math:`O` 只有观测值，没有状态值。
 
+
 :E-Step:
 
+定义 :math:`\xi_t(i, j)` 为在时刻 :math:`t` 状态为 :math:`i` 且 在时刻 :math:`t+1` 状态为 :math:`j` 的概率。
+
 ..  math::
-    \gamma_t(i) &= \frac{\alpha_t(i) \beta_t(i)}
-                        {\sum_{i=1}^N \sum_{j=1}^N \alpha_t(i) a_{ij} b_j(o_{t+1}) \beta_{t+1}(j)} \\[2ex]
     \xi_t(i, j) &= \frac{\alpha_t(i) a_{ij} b_j(o_{t+1}) \beta_{t+1}(j)}
-                        {\sum_{i=1}^N \sum_{j=1}^N \alpha_t(i) a_{ij} b_j(o_{t+1}) \beta_{t+1}(j)}
+                        {\sum_{i=1}^N \sum_{j=1}^N \alpha_t(i) a_{ij} b_j(o_{t+1}) \beta_{t+1}(j)} \\[2ex]
+                &\Downarrow 分母代入向后概率 \\[2ex]
+                &= \frac{\alpha_t(i) a_{ij} b_j(o_{t+1}) \beta_{t+1}(j)}
+                        {\sum_{i=1}^N \alpha_t(i) \beta_{t}(i)} \\[2ex]
+                &\Downarrow 对j求和，分子代入向后概率 \\[2ex]
+    \gamma_t(i) &= \frac{\alpha_t(i) \beta_t(i)}
+                        {\sum_{i=1}^N \alpha_t(i) \beta_{t}(i)}
 
 :M-Step:
+
+状态 :math:`i` 转移到状态 :math:`j` 的期望次数即为对 :math:`\xi_t(i, j)` 在 :math:`t` 上求和。
+而 :math:`\gamma_t(i)` 即为从状态 :math:`i` 开始转移的期望次数，也是从状态 :math:`i` 生成任意观测的期望次数。
 
 ..  math::
     \hat{a}_{ij} &= \frac{\sum_{t=1}^{T-1} \xi_t(i, j)}

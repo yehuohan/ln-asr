@@ -8,20 +8,21 @@
 import numpy as np
 
 class HMM:
-    """HMM基本模型"""
+    """
+    HMM基本模型，形式化定义如下：
+
+    - n: 隐状态数，状态集为Q={q1, q2, ... ,qN}
+    - m: 观测集数量，观测集为V={v1, v2, ... ,vM}，一个实际的观测序列为O={o1, o2, ... oT}
+    - A: 状态转移矩阵(NxN)，A[i, j]表示状态i转移到状态j
+    - B: 发射概率(NxM)，B[i, ot]表示状态i生成观测ot概率（观测ot时状态为i的概率）
+    - pi: 初始概率分布(Nx1)
+    - obs: 一个观测度序列O(T)
+    """
 
     def __init__(self, n:int, m:int,
             A:np.matrix=None, B:np.matrix=None, pi:np.ndarray=None,
             precision=np.double):
-        """初始化HMM参数
-
-        :Parameters:
-            - n: 隐状态数，状态集为Q={q1, q2, ... ,qN}
-            - m: 观测集数量，观测集为V={v1, v2, ... ,vM}，一个实际的观测序列为O={o1, o2, ... oT}
-            - A: 状态转移矩阵(NxN)，A[i, j]表示状态i转移到状态j
-            - B: 发射概率(NxM)，B[i, ot]表示状态i生成观测ot概率（观测ot时状态为i的概率）
-            - pi: 初始概率分布(Nx1)
-        """
+        """初始化HMM参数"""
         self.n = n
         self.m = m
         self.A = A
@@ -167,7 +168,7 @@ class HMM:
             - beta: 向后传递因子(TxN)
             - remap: 是否重新映射发射概率
 
-        :Returns: 训练的HMM参数
+        :Returns: xi和gamma参数
         """
         if remap:
             self._map_b(obs)
@@ -183,7 +184,19 @@ class HMM:
             xi[t] = numer / denom
         # gamma[t][i]: 对xi的j求和
         gamma = np.sum(xi, axis=2)
+        return xi, gamma
 
+    def _estimate(self, obs:np.ndarray, alpha, beta, xi, gamma):
+        """计算Maximization模型新参数
+
+        :Parameters:
+            - obs: 观测序列O={o1, o2, ... oT}，值为观测集中的值
+            - alpha: 向前传递因子(TxN)
+            - xi: baum-welch参数(TxNxN)
+            - gamma: baum-welch参数(TxN)
+
+        :Returns: HMM模型参数(A,B,pi)
+        """
         # M-Step: new A,B,pi
         denom = np.sum(gamma, axis=0)
         A = np.sum(xi, axis=0) / denom.reshape((self.n, 1))
@@ -191,7 +204,18 @@ class HMM:
         for k in np.arange(self.m):
             B[:, k] = np.sum(gamma[k==obs, :], axis=0) / denom.reshape((1, self.n))
         pi = gamma[0]
-        return (A, B, pi)
+        # New model
+        model = {}
+        model['A'] = A
+        model['B'] = B
+        model['pi'] = pi
+        return model
+
+    def _updatemodel(self, model):
+        """更新模型参数"""
+        self.A = model['A']
+        self.B = model['B']
+        self.pi = model['pi']
 
     def calc_prob(self, obs):
         """计算观测序列的似然度
@@ -223,12 +247,11 @@ class HMM:
             self._map_b(obs)
             alpha =  self._forward(obs)
             beta = self._backward(obs)
-            A, B, pi = self._baumwelch(obs, alpha, beta)
+            xi, gamma = self._baumwelch(obs, alpha, beta)
+            model = self._estimate(obs, alpha, beta, xi, gamma)
             # 更新参数
             prob_old = np.log(np.sum(alpha[-1]))
-            self.A = A
-            self.B = B
-            self.pi = pi
+            self._updatemodel(model)
             prob_new = np.log(self.calc_prob(obs))
             # 检测收敛精度
             prod_d = abs(prob_old - prob_new)
@@ -239,4 +262,4 @@ class HMM:
                       " eps = {:.6f}"
                       .format(k, prob_old, prob_new, prod_d))
             if (prod_d < eps):
-                break;
+                break

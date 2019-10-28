@@ -15,7 +15,7 @@ Welcome to ln-asr's documentation!
 
     basic
     hmm
-    gmm
+    gmmhmm
     mfcc
     api
 

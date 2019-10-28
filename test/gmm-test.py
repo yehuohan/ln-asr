@@ -57,12 +57,11 @@ plt.show()
 #%% 高斯混合模型
 M = 3
 c = np.array([0.2, 0.3, 0.5], dtype=np.float)
-x = np.empty((M, 100*100, 2), dtype=np.float)
+x = np.empty((100*100, 2), dtype=np.float)
 r = np.linspace(-6, 6, 100, dtype=np.float)
 mesh = np.meshgrid(r, r)
-for k in np.arange(M):
-    x[k, :, 0] = mesh[0].ravel()
-    x[k, :, 1] = mesh[1].ravel()
+x[:, 0] = mesh[0].ravel()
+x[:, 1] = mesh[1].ravel()
 mu = np.empty((M, 2), dtype=np.float)
 mu[0] = np.array([0, 0], dtype=np.float)
 mu[1] = np.array([-3, -3], dtype=np.float)

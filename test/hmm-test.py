@@ -30,10 +30,11 @@ v, bt, path = h._viterbi(obs)
 # print(bt)
 # print(path)
 # print(h.decode(obs))
-nA, nB, npi = h._baumwelch(obs, alpha, beta)
-# print(nA)
-# print(nB)
-# print(npi)
+xi, gamma = h._baumwelch(obs, alpha, beta)
+model = h._estimate(obs, alpha, beta, xi, gamma)
+# print(model['A'])
+# print(model['B'])
+# print(model['pi'])
 
 #%% 无监督训练
 obs = (3,1,2,1,0,1,2,3,1,2,0,0,0,1,1,2,1,3,0) * 10
