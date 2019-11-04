@@ -105,27 +105,31 @@ class Seg(HMM):
     """基于HMM的分词类"""
 
     # 状态映射
-    StateB = 0
-    StateM = 1
-    StateE = 2
-    StateS = 3
     states = {
-            DataSet.State_Begin  : StateB,
-            DataSet.State_Member : StateM,
-            DataSet.State_End    : StateE,
-            DataSet.State_Single : StateS,
+            DataSet.State_Begin  : 0,
+            DataSet.State_Member : 1,
+            DataSet.State_End    : 2,
+            DataSet.State_Single : 3,
         }
+    states_inv = [DataSet.State_Begin, DataSet.State_Member, DataSet.State_End, DataSet.State_Single]
 
     def __init__(self, A:np.matrix=None, B:np.matrix=None, pi:np.ndarray=None):
         super().__init__(len(self.states), 65536, A, B, pi, np.double)
 
-    def _map_data(self, data:str):
+    def _map_data(self, data:str)->np.ndarray:
         """将观测字符映射成下标状态"""
         return np.array(list(map(lambda x: ord(x), data)))
 
-    def _map_state(self, state:str):
+    def _map_state(self, state:str)->np.ndarray:
         """将字符状态映射成下标状态"""
         return np.array(list(map(lambda x: self.states[x], state)))
+
+    def _map_state_inv(self, state:np.ndarray)->str:
+        """将字符状态下标反映射成状态字符"""
+        txt = ''
+        for k in state:
+            txt += self.states_inv[k]
+        return txt
 
     def reset(self):
         """初始化训练参数"""
@@ -171,19 +175,11 @@ class Seg(HMM):
         """测试中文分词"""
         # decode
         T = len(test_data)
-        obs = np.zeros(T, dtype=np.uint16)
-        for k in range(T):
-            obs[k] = ord(test_data[k])
+        obs = self._map_data(test_data)
         path = self.decode(obs)
-        # segment
-        seg = ''
-        for k in range(T):
-            seg += test_data[k]
-            if path[k] == self.StateS or path[k] == self.StateE:
-                seg += ' '
-        return seg
+        return path
 
-def print_marked_data(data:str, state:np.ndarray):
+def print_data_state(data:str, state:str):
     """显示数据集和状态"""
     widths = [
         (126,    1), (159,    0), (687,     1), (710,   0), (711,   1),
@@ -224,7 +220,7 @@ def test_seg_train():
     ds = DataSet("pku_training.utf8")
     training_data = ds.get_marked_data()
     # td1 = next(training_data)
-    # print_marked_data(td1['data'], td1['state'])
+    # print_data_state(td1['data'], td1['state'])
     hs = Seg()
     hs.train(training_data)
     hs.save("seg.hdf5")
@@ -241,7 +237,7 @@ def test_seg_test():
     seg_data = hs.test(test_data)
     print(test_data)
     print(true_data)
-    print(seg_data)
+    print_data_state(test_data, hs._map_state_inv(seg_data))
 
 if __name__ == "__main__":
     # test_seg_train()
