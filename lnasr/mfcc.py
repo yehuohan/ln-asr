@@ -159,40 +159,40 @@ class MFCC:
         # 预加重
         signal_hpf = self.calc_high_pass_filter(signal)
 
-        # 分帧
+        # 分帧[frames x frame_L]
         frames_signal = self.split_frames(signal_hpf)
 
         # 加窗
         frames_signal *= self.create_hamming()
 
-        # STFT
+        # STFT[frames x fft_size]
         frames_magnitude = np.abs(np.fft.rfft(frames_signal, self.fft_N))
         frames_power = ((1.0 / self.fft_N) * (frames_magnitude ** 2))   # 帕塞瓦尔定理
 
-        # Mel Filter Bank
+        # Mel Filter Bank[mfbank_num x fft_size]
         mfbank = self.create_filter_bank()
 
-        # 倒谱
+        # 倒谱[frames_num x mfbank_num]
         frames_cepstrum = np.dot(frames_power, mfbank.T)
         frames_cepstrum = np.where(frames_cepstrum == 0, np.finfo(float).eps, frames_cepstrum)  # 用无限接近零的浮点数值代替0
         frames_cepstrum = 20 * np.log10(frames_cepstrum)    # dB
         frames_cepstrum -= (np.mean(frames_cepstrum, axis=0) + 1e-8)
         frames_cepstrum = dct(frames_cepstrum, type=2, axis=1, norm='ortho')
 
-        # features: 前12个倒谱系数
+        # features[frames_num x 12]: 前12个倒谱系数
         features = frames_cepstrum[:, 1:(1+self.cepstrum_num)]
         features -= (np.mean(features, axis=0) + 1e-8)
-        # features: 能量特征（取对数）
+        # features[frames x 13]: 能量特征（取对数）
         features = np.concatenate(
                 (features, np.log(np.sum(frames_power, axis=1).reshape((-1, 1)))),
                 axis=1)
-        # features: delta特征
+        # features[frames_num x 26]: delta特征
         features = np.concatenate(
                 (features, np.concatenate(
                     (features[1].reshape((1, -1)), features[1:] - features[:-1]),
                     axis=0)),
                 axis=1)
-        # features: 双delta特征
+        # features[frames_num x 39]: 双delta特征
         features = np.concatenate(
                 (features, np.concatenate(
                     (features[1, 13:26].reshape((1, -1)), features[1:, 13:26] - features[:-1, 13:26]),
