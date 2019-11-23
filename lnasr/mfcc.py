@@ -5,6 +5,8 @@
 梅尔频率倒谱系数(Mel Frequency Cepstrum Coefficient)
 """
 
+from .utils import split_frames
+from .utils import create_hamming
 import numpy as np
 from scipy.fftpack import dct
 
@@ -55,44 +57,6 @@ class MFCC:
         signal_hpf = np.append(signal[0], np.array(signal[1:] - self.hpf_alpha * signal[:-1]))
         return signal_hpf
 
-    def split_frames(self, signal:np.ndarray)->np.ndarray:
-        """对语音信号分帧
-
-        一帧的时间长度为frame_T=25ms，对应的数据点数为frame_L=400。
-        分帧的数据为一个数组，数组元素是长度为400的帧数据。
-
-        :Parameters:
-            - signal: 语音数据
-
-        :Returns:
-            - 分帧的语音数据
-        """
-        signal_length = len(signal)     # 信号长度
-        frames_num = int(np.ceil(np.abs(signal_length - self.frame_L) / self.frame_step)) # 帧的数量
-
-        # 未尾帧填充0，保证每帧长度相同
-        signal_pad_length = frames_num * self.frame_step + self.frame_L
-        if signal_pad_length > signal_length:   # 最后一帧用0填充至frame_L的长度
-            signal_pad = np.append(signal, np.zeros((signal_pad_length - signal_length)))
-        else:
-            signal_pad = signal
-
-        # 用frames_signal保存信号每帧数据
-        indices = np.tile(np.arange(0, self.frame_L), (frames_num, 1)) + \
-            np.tile(np.arange(0, frames_num * self.frame_step, self.frame_step), (self.frame_L, 1)).T
-        frames_signal = signal_pad[indices.astype(np.int32, copy=False)]
-        return frames_signal
-
-    def create_hamming(self)->np.ndarray:
-        """生成宽度为frame_L个点的汉明窗
-
-        公式如下（N为窗长度）：
-
-        ..  math::
-            w(n) = 0.54 - 0.46 \cdot cos(2 \cdot \\pi \cdot \cfrac{n}{N - 1})
-        """
-        return (0.54 - 0.46 * np.cos(2 * np.pi * np.arange(self.frame_L) / (self.frame_L- 1)))
-
     def calc_mel(self, hz:np.ndarray):
         """由Hertz频率计算Mel频率
 
@@ -142,6 +106,8 @@ class MFCC:
             使用一阶高通滤波，增加高频段的能量；
         - 分帧
             将信号分成若干个长度为frame_L个点的帧，一帧代表的时间长度为frame_T秒；
+        一帧的时间长度为frame_T=25ms，对应的数据点数为frame_L=400。
+        分帧的数据为一个数组，数组元素是长度为400的帧数据。
         - 加窗
             窗的长度等同于帧长度：
         - STFT
@@ -160,10 +126,10 @@ class MFCC:
         signal_hpf = self.calc_high_pass_filter(signal)
 
         # 分帧[frames x frame_L]
-        frames_signal = self.split_frames(signal_hpf)
+        frames_signal = split_frames(signal_hpf, self.frame_L, self.frame_step)
 
         # 加窗
-        frames_signal *= self.create_hamming()
+        frames_signal *= create_hamming(self.frame_L)
 
         # STFT[frames x fft_size]
         frames_magnitude = np.abs(np.fft.rfft(frames_signal, self.fft_N))

@@ -5,6 +5,7 @@ import sys,os
 sys.path.append(os.getcwd() + '/../')
 
 from lnasr.mfcc import MFCC
+from lnasr.utils import *
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import mpl_toolkits.mplot3d as plt3d
@@ -74,14 +75,14 @@ ax.set_xticklabels((str(x) for x in np.linspace(0, len(vr)/16000.0, 5)))
 # ax.plot(np.linspace(1, 16000//2, num=len(vr_hpf_fft)), vr_hpf_fft)
 
 # 分帧
-vr_frames = mfcc.split_frames(vr_hpf)
+vr_frames = split_frames(vr_hpf, mfcc.frame_L, mfcc.frame_step)
 fig = plt.figure('Voice frames')
 fig.canvas.mpl_connect('key_press_event', on_key)
 ax = fig.add_axes((0.1, 0.1, 0.8, 0.8))
 ax.imshow(vr_frames, cmap='flag')
 
 # 加窗
-vr_win = vr_frames * mfcc.create_hamming()
+vr_win = vr_frames * create_hamming(mfcc.frame_L)
 fig = plt.figure('Voice window')
 fig.canvas.mpl_connect('key_press_event', on_key)
 ax = fig.add_axes((0.1, 0.1, 0.8, 0.8))
