@@ -19,18 +19,8 @@ def on_key(event:mpl.backend_bases.KeyEvent):
     if event.key == 'escape':
         plt.close()
 
-def get_voice_raw(filepath)->np.ndarray:
-    """读取语音数据(16KHz, 16bit)"""
-    with open(filepath, 'rb') as fp:
-        byte = fp.read()
-        size = fp.tell() // 2
-        vr = np.zeros((size), dtype=np.int16)
-        for k in range(size):
-            vr[k] = (byte[2*k]) | (byte[2*k+1]<<8)
-    return vr
-
 #%% 读取语音数据
-vr = get_voice_raw("data.raw").astype(dtype=np.float, copy=False)
+vr = read_pcm("data.raw").astype(dtype=np.float, copy=False)
 vr_fft = np.fft.rfft(vr)
 fig = plt.figure('Voice data')
 fig.canvas.mpl_connect('key_press_event', on_key)
