@@ -23,3 +23,4 @@
 
 ..  image:: basic/mod.png
     :align: center
+    :scale: 70%
