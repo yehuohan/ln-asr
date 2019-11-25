@@ -8,6 +8,7 @@
 from .gmm import *
 from .hmm import HMM
 import numpy as np
+import h5py
 
 class GMMHMM(HMM):
     """
@@ -26,7 +27,7 @@ class GMMHMM(HMM):
 
     def __init__(self, n:int, m:int, d:int=1,
             A:np.matrix=None, pi:np.ndarray=None,
-            w:np.ndarray=None, mu:np.ndarray=None, si:np.ndarray=None, 
+            w:np.ndarray=None, mu:np.ndarray=None, si:np.ndarray=None,
             precision=np.double):
         """初始化GMMHMM参数"""
         super().__init__(n, m, A, None, pi, precision)
@@ -106,7 +107,7 @@ class GMMHMM(HMM):
         """
         mu = np.dot(
                 # dot(TxNxM -> NxMxT, TxD) -> NxMxD
-                np.swapaxes(np.swapaxes(xi_mix, 0, 1), 1, 2), 
+                np.swapaxes(np.swapaxes(xi_mix, 0, 1), 1, 2),
                 obs) / np.sum(xi_mix, axis=0).reshape(self.n, self.m, 1)
 
         # Sigma[NxMxDxD]
@@ -152,3 +153,43 @@ class GMMHMM(HMM):
         self.mu = model['mu']
         self.si = model['si']
         self.w = model['w']
+
+    def reset(self, init_type=None):
+        """初始化训练参数
+
+        :Returns:
+            - init_type: 初始化类型，默认全部初始化为零
+        """
+        if init_type == None:
+            self.A = np.zeros((self.n, self.n), dtype=self.precision)
+            self.pi = np.zeros(self.n, dtype=self.precision)
+            self.w = np.zeros((self.n, self.m), dtype=self.precision)
+            self.mu = np.zeros((self.n, self.m, self.d), dtype=self.precision)
+            self.si = np.zeros((self.n, self.m, self.d, self.d), dtype=self.precision)
+        elif init_type == 'uniform':
+            self.A = np.ones((self.n, self.n), dtype=self.precision) * (1.0 / self.n)
+            self.pi = np.ones(self.n, dtype=self.precision) * (1.0 / self.n)
+            self.w = np.ones((self.n, self.m), dtype=self.precision) * (1.0 / self.m)
+            self.mu = np.zeros((self.n, self.m, self.d), dtype=self.precision)
+            self.si = np.empty((self.n, self.m, self.d, self.d), dtype=self.precision)
+            self.si[:, :] = np.eye(self.d, dtype=self.precision)
+
+    def save(self, filename):
+        """保存模型参数"""
+        f = h5py.File(filename, 'w')
+        f.create_dataset('A', data=self.A)
+        f.create_dataset('pi', data=self.pi)
+        f.create_dataset('w', data=self.w)
+        f.create_dataset('mu', data=self.mu)
+        f.create_dataset('si', data=self.si)
+        f.close()
+
+    def load(self, filename):
+        """加载模型参数"""
+        f = h5py.File(filename, 'r')
+        self.A = f['A']
+        self.pi = f['pi']
+        self.w = f['w']
+        self.mu = f['mu']
+        self.si = f['si']
+        self.n, self.m, self.d = self.mu.shape

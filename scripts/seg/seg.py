@@ -13,7 +13,6 @@ sys.path.append(os.getcwd() + '/../../')
 from lnasr.hmm import HMM
 from lnasr.utils import Punctuation_Unicode_Set
 import numpy as np
-import h5py
 
 class DataSet():
     """训练数据集预处理"""
@@ -129,27 +128,6 @@ class Seg(HMM):
         for k in state:
             txt += self.States_Inv[k]
         return txt
-
-    def reset(self):
-        """初始化训练参数"""
-        self.A = np.zeros((self.n, self.n), dtype=np.double)
-        self.B = np.zeros((self.n, self.m), dtype=np.double)
-        self.pi = np.zeros(self.n, dtype=np.double)
-
-    def save(self, filename):
-        """保存模型参数"""
-        f = h5py.File(filename, 'w')
-        f.create_dataset('A', data=self.A)
-        f.create_dataset('B', data=self.B)
-        f.create_dataset('pi', data=self.pi)
-        f.close()
-
-    def load(self, filename):
-        """加载模型参数"""
-        f = h5py.File(filename, 'r')
-        self.A = f['A']
-        self.B = f['B']
-        self.pi = f['pi']
 
     def train(self, datas):
         """中文分词参数训练

@@ -6,6 +6,7 @@
 """
 
 import numpy as np
+import h5py
 
 class HMM:
     """
@@ -216,6 +217,37 @@ class HMM:
         self.A = model['A']
         self.B = model['B']
         self.pi = model['pi']
+
+    def reset(self, init_type=None):
+        """初始化训练参数
+
+        :Returns:
+            - init_type: 初始化类型，默认全部初始化为零
+        """
+        if init_type == None:
+            self.A = np.zeros((self.n, self.n), dtype=self.precision)
+            self.B = np.zeros((self.n, self.m), dtype=self.precision)
+            self.pi = np.zeros(self.n, dtype=self.precision)
+        elif init_type == 'uniform':
+            self.A = np.ones((self.n, self.n), dtype=self.precision) * (1.0 / self.n)
+            self.B = np.ones((self.n, self.m), dtype=self.precision) * (1.0 / self.m)
+            self.pi = np.ones(self.n, dtype=self.precision) * (1.0 / self.n)
+
+    def save(self, filename):
+        """保存模型参数"""
+        f = h5py.File(filename, 'w')
+        f.create_dataset('A', data=self.A)
+        f.create_dataset('B', data=self.B)
+        f.create_dataset('pi', data=self.pi)
+        f.close()
+
+    def load(self, filename):
+        """加载模型参数"""
+        f = h5py.File(filename, 'r')
+        self.A = f['A']
+        self.B = f['B']
+        self.pi = f['pi']
+        self.n, self.m = self.B.shape
 
     def calc_prob(self, obs):
         """计算观测序列的似然度
