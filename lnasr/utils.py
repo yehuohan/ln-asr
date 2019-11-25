@@ -8,6 +8,44 @@
 import numpy as np
 import wave
 
+Punctuation_Ascii_Set = {
+    '.',
+    ',',
+    '?',
+    '!',
+    '"',
+    "'",
+    ':',
+    ';',
+    '(',
+    ')',
+    '[',
+    ']',
+    '{',
+    '}'
+    }
+
+Punctuation_Unicode_Set = {
+    '。',
+    '，',
+    '？',
+    '！',
+    '：',
+    '；',
+    '、',
+    '‘',
+    '’',
+    '“',
+    '”',
+    '—',
+    '《',
+    '》',
+    '（',
+    '）',
+    '【',
+    '】'
+    }
+
 def read_wave(filename:str)->np.ndarray:
     """获取wave音频数据和频率
 

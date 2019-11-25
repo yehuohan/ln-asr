@@ -11,6 +11,7 @@ import sys,os
 sys.path.append(os.getcwd() + '/../../')
 
 from lnasr.hmm import HMM
+from lnasr.utils import Punctuation_Unicode_Set
 import numpy as np
 import h5py
 
@@ -24,9 +25,7 @@ class DataSet():
     Type_Character   = 3
     Type_Right       = 4
     # 特殊字符
-    Punctuation_Set = { '。', '，', '！', '？', '；', '：', '、',
-                        '‘',  '’',  '“',  '”', '《', '》', '（', '）',
-                        '—'}
+    Pnctt_Set = Punctuation_Unicode_Set
     # 字符状态
     State_Begin  = 'B'      # 'B': Begin
     State_Member = 'M'      # 'M': Member
@@ -48,7 +47,7 @@ class DataSet():
         """判断字符类型"""
         if ord(ch) == ord(' '):
             return self.Type_Space
-        elif ch in self.Punctuation_Set:
+        elif ch in self.Pnctt_Set:
             return self.Type_Punctuation
         else:
             return self.Type_Character
