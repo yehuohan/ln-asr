@@ -106,7 +106,5 @@ def create_hamming(N:int)->np.ndarray:
     """
     return (0.54 - 0.46 * np.cos(2 * np.pi * np.arange(N) / (N - 1)))
 
-
 if __name__ == "__main__":
-    a = np.arange(30)
-    print(split_frames(a, 3, 2))
+    print(split_frames(np.arange(30), 3, 2))

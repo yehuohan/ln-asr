@@ -104,16 +104,16 @@ class Seg(HMM):
     """基于HMM的分词类"""
 
     # 状态映射
-    states = {
+    States = {
             DataSet.State_Begin  : 0,
             DataSet.State_Member : 1,
             DataSet.State_End    : 2,
             DataSet.State_Single : 3,
         }
-    states_inv = [DataSet.State_Begin, DataSet.State_Member, DataSet.State_End, DataSet.State_Single]
+    States_Inv = [DataSet.State_Begin, DataSet.State_Member, DataSet.State_End, DataSet.State_Single]
 
     def __init__(self, A:np.matrix=None, B:np.matrix=None, pi:np.ndarray=None):
-        super().__init__(len(self.states), 65536, A, B, pi, np.double)
+        super().__init__(len(self.States), 65536, A, B, pi, np.double)
 
     def _map_data(self, data:str)->np.ndarray:
         """将观测字符映射成下标状态"""
@@ -121,13 +121,13 @@ class Seg(HMM):
 
     def _map_state(self, state:str)->np.ndarray:
         """将字符状态映射成下标状态"""
-        return np.array(list(map(lambda x: self.states[x], state)))
+        return np.array(list(map(lambda x: self.States[x], state)))
 
     def _map_state_inv(self, state:np.ndarray)->str:
         """将字符状态下标反映射成状态字符"""
         txt = ''
         for k in state:
-            txt += self.states_inv[k]
+            txt += self.States_Inv[k]
         return txt
 
     def reset(self):
