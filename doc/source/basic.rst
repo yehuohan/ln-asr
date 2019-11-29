@@ -13,8 +13,12 @@
 
 ::
 
-    phones -> syllable -> word
-    音素   -> 音节     -> 字
+    wave -> phones -> word -> sentence
+    语音 -> 音素   -> 字   -> 句子
+
+- `wave -> phones` ：计算每帧语音的MFCC特征，根据声学模型(Acoustic Model)估计每帧语音对应的 `音素` ；
+- `phones -> word` ：通过发音词典(Lexicon)确定 `音素` 对应的 `字` （通过发音词典设置 `字` 的搜索空间）；
+- `wrod -> sentence` ：通过语言模型(Language Model)确定 `字` 最可能组成的 `句子` （通过语料库设置 `句子` 的概率搜索空间）。
 
 对于给定的声学输入 :math:`O` ，在语言 :math:`L` 的所有句子 :math:`W` 中，我们要计算最可能的句子:
 
