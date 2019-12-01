@@ -26,10 +26,15 @@ txt_files = glob.glob(thchs30 + '/*.txt')
 #%% 字符串序列化
 tokens = []
 data = []
-for k in range(len(trn_files)):
-# for k in range(1):
+# for k in range(len(trn_files)):
+for k in range(1):
     with open(trn_files[k], mode='r', encoding='utf-8') as fp:
         line = fp.readlines()
         data.append(line[0].strip())
         tokens.append(_Tokenizer.get_tokens(line[0].strip()))
-print(tokens)
+# print(tokens)
+
+#%% NGramCounter统计
+nc = NGramCounter(order, tokens)
+print(nc)
+print(nc.ngrams)
