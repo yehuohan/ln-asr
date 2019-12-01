@@ -17,6 +17,7 @@ Welcome to ln-asr's documentation!
     hmm
     gmmhmm
     mfcc
+    ngram
     api
 
 Indices and tables

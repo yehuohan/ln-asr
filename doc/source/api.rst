@@ -25,3 +25,15 @@ lnasr.mfcc
 
 .. automodule:: mfcc
    :members:
+
+lnasr.ngram
+-----------
+
+.. automodule:: ngram
+   :members:
+
+lnasr.utils
+-----------
+
+.. automodule:: utils
+   :members:
