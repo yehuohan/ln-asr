@@ -103,3 +103,118 @@ class NGramCounter(defaultdict):
             w = tuple(token[k-self.order+1:k])
             self[w][token[k]] += 1
             self.ngrams.add(w + (token[k],))
+
+class NGramModel(dict):
+    """中文NGram模型，这里使用3元模型，即TriGram"""
+
+    def __init__(self, order):
+        """初始化"""
+        self.order = order
+
+    def estimate(self, smoothing):
+        """估计模型概率"""
+        if smoothing == None:
+            # 无平滑（直接使用MLE）
+            for context,wndict in self.counter.items():
+                s = float(sum(wndict.values()))
+                self[context] = dict((wn, float(cnt) / s) for wn,cnt in wndict.items())
+        elif smoothing == 'AddOne':
+            # 加1平滑
+            for context,wndict in self.counter.items():
+                s = float(sum(wndict.values()) + len(wndict))
+                self[context] = dict((wn, float(cnt + 1.0) / s) for wn,cnt in wndict.items())
+        # 生成ARPA中的prob和prob_bo
+        self.prob = {}
+        self.prob_bo = {}
+        for context,wndict in self.items():
+            for wn,p in wndict.items():
+                self.prob[context + (wn,)] = np.log10(p)
+
+    def _train(self, tokens:List[np.ndarray]):
+        """训练NGram模型，并生成低阶模型"""
+        self.counter = NGramCounter(self.order, tokens)
+        self.estimate(None)
+        # self.estimate('AddOne')
+        # 递归生成低阶NGram模型
+        if self.order > 1:
+            self.backoff = NGramModel(self.counter.backoff.order)
+            self.backoff._train(tokens)
+        else:
+            self.backoff = None
+
+    def train(self, data:List[str]):
+        """训练NGram模型"""
+        tokens = []
+        for txt in data:
+            tokens.append(_Tokenizer.get_tokens(txt, True))
+        self._train(tokens)
+
+    def save_lm(self, filename):
+        """生成ARPA语言模型"""
+        saver = NGramModelSaver(self)
+        saver.save(filename)
+
+    def load_lm(self, filename):
+        """加载ARPA语言模型"""
+        saver = NGramModelSaver(self)
+        saver.load(filename)
+
+class NGramModelSaver:
+    """NGram的lm模型生成"""
+
+    # LM标识字符串
+    LmData     = "\n\\data\\\n"
+    LmDataNum  = "ngram {}={}"
+    LmNgrams   = "\n\\{}-grams:"
+    LmEnd      = "\n\\end\\\n"
+    # LM数据
+    LmSections = {
+        'comment': [],
+        'data': [],
+        'grams': []
+        }
+
+    def __init__(self, model:NGramModel):
+        """初始化"""
+        self.model = model
+
+    def _appen_model(self, m:NGramModel):
+        """生成模型数据"""
+        if m.backoff != None:
+            self._appen_model(m.backoff)
+        self.lm['data'].append(self.LmDataNum.format(m.order, len(m.counter.ngrams)))
+        grams = [self.LmNgrams.format(m.order)]
+        try:
+            for k,v in m.prob.items():
+                line = "{}\t{}".format(v, " ".join(k))
+                try:
+                    if k in m.prob_bo.keys():
+                        line += "\t{}".format(m.prob_bo[k])
+                except Exception:
+                    pass
+                grams.append(line)
+        except Exception as e:
+            pass
+        self.lm['grams'].append(grams)
+
+    def _make_model(self):
+        """生成模型文本"""
+        text = ""
+        text += "\n".join(self.lm['comment'])
+        text += self.LmData
+        text += "\n".join(self.lm['data']) + "\n"
+        for k in self.lm['grams']:
+            text += "\n".join(k) + "\n"
+        text += self.LmEnd
+        return text
+
+    def save(self, filename):
+        """保存ARPA语言模型"""
+        self.lm = self.LmSections.copy()
+        self._appen_model(self.model)
+        with open(filename, mode='w', encoding='utf-8') as fp:
+            fp.write(self._make_model())
+
+    def load(self, filename):
+        """加载ARPA语言模型"""
+        raise Exception("Not implement")
