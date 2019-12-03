@@ -62,7 +62,7 @@ class VadLtsd:
         frames *= create_hamming(self.winsize)
         # 使用FFT计算幅度频谱[frames_num x fft_size]
         frames_amplitude = np.empty((frames_num, self.fft_size))
-        frames_amplitude[:] = np.abs(np.fft.rfft(frames[:], self.winsize))[:self.fft_size]
+        frames_amplitude = np.abs(np.fft.rfft(frames, self.winsize))
         # 基于前2帧计算noise
         noise = np.average(frames_amplitude[0:2], axis=0) ** 2
         # 计算LTSE(Long-Term Spectral Envelope)
@@ -83,8 +83,8 @@ if __name__ == "__main__":
     wd = np.array(wd / (65536.0/2), dtype=np.double)
     vad = VadLtsd(
             freq=fs,
-            winsize=2048,
-            stepsize=1024,
+            winsize=512,
+            stepsize=256,
             order=4,
             threshold=-6,
             alpha=0.4)
