@@ -8,20 +8,21 @@ Voice Activity Detection.
 
     - `Efficient voice activity detection algorithms using long-term speech information <https://www.sciencedirect.com/science/article/abs/pii/S0167639303001201>`_
     - https://github.com/isrish/VAD-LTSD
+
+:VadWebRTC:
+
+    - https://github.com/wiseman/py-webrtcvad
+
 """
 
 import sys,os
 sys.path.append(os.getcwd() + '/../../')
 
 from lnasr.utils import *
-import matplotlib as mpl
-import matplotlib.pyplot as plt
+from lnasr.mfcc import MFCC
 import numpy as np
+import webrtcvad
 import pysnooper
-
-def on_key(event:mpl.backend_bases.KeyEvent):
-    if event.key == 'escape':
-        plt.close()
 
 class VadLtsd:
     """静音检测"""
@@ -78,24 +79,22 @@ class VadLtsd:
                 noise = self.alpha*noise + (1-self.alpha)*(np.sum(ltse[k]) / self.winsize)
         return ltsd
 
-if __name__ == "__main__":
-    wd, fs = read_wave("data.wav")
-    wd = np.array(wd / (65536.0/2), dtype=np.double)
-    vad = VadLtsd(
-            freq=fs,
-            winsize=512,
-            stepsize=256,
-            order=4,
-            threshold=-6,
-            alpha=0.4)
-    ltsd = vad.detect(wd)
-    # 修改order可以改LTSE的包络宽度（order增大，会提前检测到Activity位置，也会延后Non-Activity位置）
-    res_points = np.arange(ltsd.shape[0]) * vad.stepsize
-    res_nor = ltsd / np.max(ltsd)
-    res_bin = (res_nor > 0.25) * np.max(wd)
-    plt.figure('Plot')
-    plt.connect('key_press_event', on_key)
-    plt.plot(wd, linewidth=0.5)
-    plt.plot(res_points, res_nor, 'g')
-    plt.plot(res_points, res_bin, 'r')
-    plt.show()
+def VadWebRTC(data:np.ndarray, freq=16000, frame_length=30e-3, frame_stride=10e-3, mode=0)->np.ndarray:
+    """基于WebRTC进行vad检测
+
+    :Parameters:
+        - data: 语音数据
+        - freq: 语音频率
+        - frame_length: 分帧的时长，可以为10ms, 20ms或30ms
+        - frame_stride: 帧移的时长
+        - mode: WebRTC检测模式，0=Normal，1=low Bitrate，2=Aggressive，3=Very Aggressive
+
+    :Returns: 检测结果数组
+    """
+    frames = split_frames(data, int(freq*frame_length), int(freq*frame_stride))
+    vad = webrtcvad.Vad()
+    vad.set_mode(mode)
+    res = []
+    for f in frames[:]:
+        res.append(vad.is_speech(bytes(f), freq))
+    return np.array(res, dtype=np.uint8)
