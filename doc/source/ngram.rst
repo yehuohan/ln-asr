@@ -119,3 +119,11 @@ N元语法模型（N-Gram Model）是根据前面出现的N-1个单词来猜测�
     \alpha(w^{n-1}_{n-N+1}) &= \frac{1 - \sum_{C(w^n_{n-N+1}) > 0} P^*(w_n | w^{n-1}_{n-N+1})} 
                                     {1 - \sum_{C(w^n_{n-N+1}) > 0} P^*(w_n | w^{n-1}_{n-N+2})}
 
+
+:参考:
+
+- `Speech and Language Processing <https://web.stanford.edu/~jurafsky/slp3>`_
+- `github.com/KAMI-Wei/ml-model <https://github.com/KAMI-Wei/ml-model>`_
+- `github.com/daandouwe/ngram-lm <https://github.com/daandouwe/ngram-lm>`_
+- `github.com/adroitous/Naive-Bayes-Classifier-with-Katz-Backoff <https://github.com/adroitous/Naive-Bayes-Classifier-with-Katz-Backoff>`_
+- `github.com/zzchua/ngram-language-model <https://github.com/zzchua/ngram-language-model>`_
