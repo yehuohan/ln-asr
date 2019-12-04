@@ -10,6 +10,9 @@ from collections import defaultdict, Counter
 import numpy as np
 from typing import List, Tuple
 
+CharSpace = " "
+CharLF = "\n"
+
 class _Tokenizer:
     """文本向量化"""
     Pnctt_Set = Punctuation_Unicode_Set
@@ -31,7 +34,7 @@ class _Tokenizer:
             else:
                 line += text[k]
         if s:
-            line = " ".join(["<s>", line, "</s>"])
+            line = CharSpace.join(["<s>", line, "</s>"])
         tokens = np.array(line.split(), dtype=np.chararray)
         return tokens
 
@@ -95,7 +98,7 @@ class NGramCounter(defaultdict):
             strs.append(str(k) + " : " + str(v))
         if self.backoff != None:
             strs.append(str(self.backoff))
-        return "\n".join(strs)
+        return CharLF.join(strs)
 
     def __count(self, token:np.ndarray):
         """统计向量化文本的NGram"""
@@ -107,11 +110,23 @@ class NGramCounter(defaultdict):
 class NGramModel(dict):
     """中文NGram模型，这里使用3元模型，即TriGram"""
 
-    def __init__(self, order):
-        """初始化"""
-        self.order = order
+    def __init__(self, nc:NGramCounter):
+        """初始化
 
-    def estimate(self, smoothing):
+        :Parameters:
+            - nc: NGram计数模型
+        """
+        self.order = nc.order
+        self.counter = nc
+        self._estimate(None)
+        # self._estimate('AddOne')
+        # 递归生成低阶NGram模型
+        if self.order > 1:
+            self.backoff = NGramModel(self.counter.backoff)
+        else:
+            self.backoff = None
+
+    def _estimate(self, smoothing):
         """估计模型概率"""
         if smoothing == None:
             # 无平滑（直接使用MLE）
@@ -129,25 +144,6 @@ class NGramModel(dict):
         for context,wndict in self.items():
             for wn,p in wndict.items():
                 self.prob[context + (wn,)] = np.log10(p)
-
-    def _train(self, tokens:List[np.ndarray]):
-        """训练NGram模型，并生成低阶模型"""
-        self.counter = NGramCounter(self.order, tokens)
-        self.estimate(None)
-        # self.estimate('AddOne')
-        # 递归生成低阶NGram模型
-        if self.order > 1:
-            self.backoff = NGramModel(self.counter.backoff.order)
-            self.backoff._train(tokens)
-        else:
-            self.backoff = None
-
-    def train(self, data:List[str]):
-        """训练NGram模型"""
-        tokens = []
-        for txt in data:
-            tokens.append(_Tokenizer.get_tokens(txt, True))
-        self._train(tokens)
 
     def save_lm(self, filename):
         """生成ARPA语言模型"""
@@ -186,7 +182,7 @@ class NGramModelSaver:
         grams = [self.LmNgrams.format(m.order)]
         try:
             for k,v in m.prob.items():
-                line = "{}\t{}".format(v, " ".join(k))
+                line = "{}\t{}".format(v, CharSpace.join(k))
                 try:
                     if k in m.prob_bo.keys():
                         line += "\t{}".format(m.prob_bo[k])
@@ -200,11 +196,11 @@ class NGramModelSaver:
     def _make_model(self):
         """生成模型文本"""
         text = ""
-        text += "\n".join(self.lm['comment'])
+        text += CharLF.join(self.lm['comment'])
         text += self.LmData
-        text += "\n".join(self.lm['data']) + "\n"
+        text += CharLF.join(self.lm['data']) + "\n"
         for k in self.lm['grams']:
-            text += "\n".join(k) + "\n"
+            text += CharLF.join(k) + "\n"
         text += self.LmEnd
         return text
 
@@ -217,4 +213,4 @@ class NGramModelSaver:
 
     def load(self, filename):
         """加载ARPA语言模型"""
-        raise Exception("Not implement")
+        raise Exception("Not implemented")

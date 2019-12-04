@@ -35,11 +35,11 @@ for k in range(len(trn_files)):
 # print(tokens)
 
 #%% NGramCounter统计
-# nc = NGramCounter(order, tokens)
+nc = NGramCounter(order, tokens)
 # print(nc)
 # print(nc.ngrams)
 
 #%% NGram模型
-ng = NGramModel(order)
-ng.train(data)
+ng = NGramModel(nc)
 ng.save_lm('trigram.lm')
+# ng.load_lm('trigram.lm')
