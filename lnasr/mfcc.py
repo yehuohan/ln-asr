@@ -5,8 +5,11 @@
 梅尔频率倒谱系数(Mel Frequency Cepstrum Coefficient)
 """
 
-from .utils import split_frames
-from .utils import create_hamming
+import sys,os
+sys.path.append(os.getcwd() + '/../')
+
+from lnasr.utils import split_frames
+from lnasr.utils import create_hamming
 import numpy as np
 from scipy.fftpack import dct
 

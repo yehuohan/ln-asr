@@ -113,12 +113,13 @@ N元语法模型（N-Gram Model）是根据前面出现的N-1个单词来猜测�
 ..  math::
     1 &= \sum_{C(w^n_{n-N+1}) > 0} P(w_n | w^{n-1}_{n-N+1}) + \sum_{C(w^n_{n-N+1}) = 0} P(w_n | w^{n-1}_{n-N+1}) \\
     &\Downarrow \\[2ex]
-    \alpha(w^{n-1}_{n-N+1}) &= \frac{1 - \sum_{C(w^n_{n-N+1}) > 0} P(w_n | w^{n-1}_{n-N+1})} 
-                                    {\sum_{C(w^n_{n-N+1}) = 0} P(w_n | w^{n-1}_{n-N+2})} \\
+    \alpha(w^{n-1}_{n-N+1}) &= \frac{1 - \sum_{w_n:C(w^n_{n-N+1}) > 0} P(w_n | w^{n-1}_{n-N+1})}
+                                    {\sum_{w_n:C(w^n_{n-N+1}) = 0} P(w_n | w^{n-1}_{n-N+2})} \\
     &\Downarrow \\[2ex]
-    \alpha(w^{n-1}_{n-N+1}) &= \frac{1 - \sum_{C(w^n_{n-N+1}) > 0} P^*(w_n | w^{n-1}_{n-N+1})} 
-                                    {1 - \sum_{C(w^n_{n-N+1}) > 0} P^*(w_n | w^{n-1}_{n-N+2})}
+    \alpha(w^{n-1}_{n-N+1}) &= \frac{1 - \sum_{w_n:C(w^n_{n-N+1}) > 0} P^*(w_n | w^{n-1}_{n-N+1})}
+                                    {1 - \sum_{w_n:C(w^n_{n-N+1}) > 0} P^*(w_n | w^{n-1}_{n-N+2})}
 
+注意：对于相同的语料库，若有 :math:`C(w^n_{n-N+1}) > 0` 则必有 :math:`C(w^n_{n-N+2}) > 0` ，但反过来，若有 :math:`C(w^n_{n-N+2}) > 0` ，不一定有 :math:`C(w^n_{n-N+1}) > 0`
 
 :参考:
 
@@ -127,3 +128,6 @@ N元语法模型（N-Gram Model）是根据前面出现的N-1个单词来猜测�
 - `github.com/daandouwe/ngram-lm <https://github.com/daandouwe/ngram-lm>`_
 - `github.com/adroitous/Naive-Bayes-Classifier-with-Katz-Backoff <https://github.com/adroitous/Naive-Bayes-Classifier-with-Katz-Backoff>`_
 - `github.com/zzchua/ngram-language-model <https://github.com/zzchua/ngram-language-model>`_
+- `漫谈 Language Model (2): 实践篇 <http://blog.pluskid.org/?p=361>`_
+- `SRILM Ngram 折扣平滑算法 <https://www.cnblogs.com/dahu-daqing/p/9759978.html>`_
+- `SRILM语言模型格式解读 <https://www.cnblogs.com/dahu-daqing/p/7449200.html>`_

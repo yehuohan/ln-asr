@@ -5,8 +5,11 @@
 高斯混合模型-隐马尔可夫模型(GMM-HMM)
 """
 
-from .gmm import *
-from .hmm import HMM
+import sys,os
+sys.path.append(os.getcwd() + '/../')
+
+from lnasr.gmm import *
+from lnasr.hmm import HMM
 import numpy as np
 import h5py
 

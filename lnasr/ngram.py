@@ -5,7 +5,10 @@
 N元语言模型（N-Gram Model），使用ARPA格式保存模型。
 """
 
-from .utils import Punctuation_Unicode_Set
+import sys,os
+sys.path.append(os.getcwd() + '/../')
+
+from lnasr.utils import Punctuation_Unicode_Set
 from collections import defaultdict, Counter
 import numpy as np
 from typing import List, Tuple
@@ -43,8 +46,8 @@ class NGramCounter(defaultdict):
 
     - `n`       即self.order，n元语法，一个ngram为(w1, w2, ..., w[n])
     - `self`    (w1 ~ w[n])的ngram计数之和，用dict保存，键为(w1 ~ w[n-1])，值为{w[n]: cnt}
-    - `N`       (w1 ~ w[n-1], *)的ngram计数之和
-    - `V`       (w1 ~ w[n-1], *)的ngram数量
+    - `N`       (w1 ~ w[n-1], wi)的ngram计数之和
+    - `V`       (w1 ~ w[n-1], wi)的ngram数量
 
     以3-gram为例：
 
