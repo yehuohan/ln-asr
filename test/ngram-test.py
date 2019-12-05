@@ -41,5 +41,7 @@ nc = NGramCounter(order, tokens)
 
 #%% NGram模型
 ng = NGramModel(nc)
-ng.save_lm('trigram.lm')
+# ng.save_lm('trigram.lm')
 # ng.load_lm('trigram.lm')
+print(ng.calc_prob("阳春", ("绿", "是")))
+print(ng.calc_prob("用时", ("绿", "是")))

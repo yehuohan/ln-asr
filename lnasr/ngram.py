@@ -46,7 +46,7 @@ class NGramCounter(defaultdict):
     - `N`       (w1 ~ w[n-1], *)的ngram计数之和
     - `V`       (w1 ~ w[n-1], *)的ngram数量
 
-    以3-gram为例，说明各变量作用：
+    以3-gram为例：
 
     ::
 
@@ -110,6 +110,8 @@ class NGramCounter(defaultdict):
 class NGramModel(dict):
     """中文NGram模型，这里使用3元模型，即TriGram"""
 
+    DisCount = 0.7
+
     def __init__(self, nc:NGramCounter):
         """初始化
 
@@ -118,13 +120,23 @@ class NGramModel(dict):
         """
         self.order = nc.order
         self.counter = nc
-        self._estimate(None)
-        # self._estimate('AddOne')
         # 递归生成低阶NGram模型
         if self.order > 1:
             self.backoff = NGramModel(self.counter.backoff)
         else:
             self.backoff = None
+        # self._estimate('AddOne')
+        self._estimate(None)
+
+    def save_lm(self, filename):
+        """生成ARPA语言模型"""
+        saver = NGramModelSaver(self)
+        saver.save(filename)
+
+    def load_lm(self, filename):
+        """加载ARPA语言模型"""
+        saver = NGramModelSaver(self)
+        saver.load(filename)
 
     def _estimate(self, smoothing):
         """估计模型概率"""
@@ -144,16 +156,35 @@ class NGramModel(dict):
         for context,wndict in self.items():
             for wn,p in wndict.items():
                 self.prob[context + (wn,)] = np.log10(p)
+        # 递归计算概率
+        if self.backoff != None:
+            self.backoff._estimate(smoothing)
 
-    def save_lm(self, filename):
-        """生成ARPA语言模型"""
-        saver = NGramModelSaver(self)
-        saver.save(filename)
+    def _alpha(self, context):
+        """计算回退权值alpha"""
+        # 计算beta
+        beta = 1.0 - self.DisCount * sum(self[context].values())
+        # 计算alpha
+        return beta / (1.0 - self.DisCount * sum(self.backoff[context[1:]].values()))
 
-    def load_lm(self, filename):
-        """加载ARPA语言模型"""
-        saver = NGramModelSaver(self)
-        saver.load(filename)
+    def calc_prob(self, word:str, context:tuple):
+        """使用回退法（Katz Backoff）估计模型概率
+
+        计算概率log10(P(word | context))
+
+        :Parameters:
+            - word: 第n个token
+            - context: 第1~n个token序列
+        """
+        w = context + (word,)
+        if w in self.counter.ngrams or self.order == 1:
+            # TODO:添加1-gram也没有w的情况，即计数为零的情况
+            # TODO:处理计数为1的情况
+            # TODO:使用动态打折系数，而不是固定的
+            wndict = self.counter[context]
+            return np.log10(self.DisCount * self[context][word])
+        else:
+            return np.log10(self._alpha(context)) + self.backoff.calc_prob(word, context[1:])
 
 class NGramModelSaver:
     """NGram的lm模型生成"""
