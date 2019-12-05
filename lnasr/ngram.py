@@ -10,35 +10,35 @@ sys.path.append(os.getcwd() + '/../')
 
 from lnasr.utils import Punctuation_Unicode_Set
 from collections import defaultdict, Counter
-import numpy as np
+import math
 from typing import List, Tuple
 
 CharSpace = " "
 CharLF = "\n"
 
-class _Tokenizer:
+class Tokenizer:
     """文本向量化"""
     Pnctt_Set = Punctuation_Unicode_Set
 
     @staticmethod
-    def get_tokens(text:str, s:bool=True)->np.ndarray:
+    def get_tokens(text:str, s:bool=True)->Tuple[str]:
         """将一段文本向量化
 
         :Parameters:
             - text: 文本，包含的中文标点当作空格处理
             - s: 文本向量化后的头尾是否添加<s>和</s>
 
-        :Returns: 保存token的numpy数组
+        :Returns: 保存token的元组
         """
         line = ""
         for k in range(len(text)):
-            if text[k] in _Tokenizer.Pnctt_Set:
+            if text[k] in Tokenizer.Pnctt_Set:
                 line += " "
             else:
                 line += text[k]
         if s:
             line = CharSpace.join(["<s>", line, "</s>"])
-        tokens = np.array(line.split(), dtype=np.chararray)
+        tokens = tuple(line.split())
         return tokens
 
 class NGramCounter(defaultdict):
@@ -73,7 +73,7 @@ class NGramCounter(defaultdict):
 
     """
 
-    def __init__(self, order, tokens:List[np.ndarray]):
+    def __init__(self, order, tokens:Tuple[Tuple[str]]):
         """初始化
 
         默认生成低阶模型。
@@ -103,9 +103,9 @@ class NGramCounter(defaultdict):
             strs.append(str(self.backoff))
         return CharLF.join(strs)
 
-    def __count(self, token:np.ndarray):
+    def __count(self, token:Tuple[str]):
         """统计向量化文本的NGram"""
-        for k in np.arange(self.order-1, len(token)):
+        for k in range(self.order-1, len(token)):
             w = tuple(token[k-self.order+1:k])
             self[w][token[k]] += 1
             self.ngrams.add(w + (token[k],))
@@ -158,36 +158,57 @@ class NGramModel(dict):
         self.prob_bo = {}
         for context,wndict in self.items():
             for wn,p in wndict.items():
-                self.prob[context + (wn,)] = np.log10(p)
+                self.prob[context + (wn,)] = math.log10(p)
         # 递归计算概率
         if self.backoff != None:
             self.backoff._estimate(smoothing)
 
-    def _alpha(self, context):
+    def _alpha(self, context:Tuple[str])->float:
         """计算回退权值alpha"""
-        # 计算beta
-        beta = 1.0 - self.DisCount * sum(self[context].values())
-        # 计算alpha
-        return beta / (1.0 - self.DisCount * sum(self.backoff[context[1:]].values()))
+        if context in self.keys():
+            # C(w1 ~ w[n-1]) > 0
+            beta = 1.0 - self.DisCount * sum(self[context].values())
+            alpha = 0.0
+            for wn in self[context].keys():
+                # 若C(w1 ~ w[n])>0，则必有C(w2 ~ w[n])>0
+                alpha += self.backoff[context[1:]][wn]
+            alpha = beta / (1.0 - self.DisCount * alpha)
+        else:
+            # C(w1 ~ w[n-1]) = 0
+            beta = 1.0
+            alpha = 1.0
+        return alpha
 
-    def calc_prob(self, word:str, context:tuple):
-        """使用回退法（Katz Backoff）估计模型概率
+    def _logprob(self, word:str, context:Tuple[str])->float:
+        """使用回退法（Katz Backoff）估计一个ngram的概率
 
-        计算概率log10(P(word | context))
+        一个ngram为(context, word)，计算概率公式：log10(P(word | context))。
 
         :Parameters:
-            - word: 第n个token
-            - context: 第1~n个token序列
+            - word: 第n个token，wn
+            - context: 第1~n个token序列，(w1 ~ w[n-1])
         """
         w = context + (word,)
         if w in self.counter.ngrams or self.order == 1:
             # TODO:添加1-gram也没有w的情况，即计数为零的情况
             # TODO:处理计数为1的情况
             # TODO:使用动态打折系数，而不是固定的
-            wndict = self.counter[context]
-            return np.log10(self.DisCount * self[context][word])
+            return math.log10(self.DisCount * self[context][word])
         else:
-            return np.log10(self._alpha(context)) + self.backoff.calc_prob(word, context[1:])
+            return math.log10(self._alpha(context)) + self.backoff._logprob(word, context[1:])
+
+    def calc_prob(self, sentence:Tuple[str])->float:
+        """计算概率（probability）"""
+        prob = 0.0
+        for k in range(self.order-1, len(sentence)):
+            prob += self._logprob(sentence[k], sentence[k-self.order+1:k])
+        return prob
+
+    def calc_ppl(self, sentence:Tuple[str])->float:
+        """计算困惑度（perplexity）"""
+        prob = self.calc_prob(sentence)
+        ppl = math.pow(10, -prob/len(sentence))
+        return ppl
 
 class NGramModelSaver:
     """NGram的lm模型生成"""
