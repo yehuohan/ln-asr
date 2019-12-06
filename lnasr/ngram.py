@@ -11,6 +11,7 @@ sys.path.append(os.getcwd() + '/../')
 from lnasr.utils import Punctuation_Unicode_Set
 from collections import defaultdict, Counter
 import math
+import re
 from typing import List, Tuple
 
 CharSpace = " "
@@ -131,16 +132,6 @@ class NGramModel(dict):
         # self._estimate('AddOne')
         self._estimate(None)
 
-    def save_lm(self, filename):
-        """生成ARPA语言模型"""
-        saver = NGramModelSaver(self)
-        saver.save(filename)
-
-    def load_lm(self, filename):
-        """加载ARPA语言模型"""
-        saver = NGramModelSaver(self)
-        saver.load(filename)
-
     def _estimate(self, smoothing):
         """估计模型概率"""
         if smoothing == None:
@@ -153,12 +144,6 @@ class NGramModel(dict):
             for context,wndict in self.counter.items():
                 s = float(sum(wndict.values()) + len(wndict))
                 self[context] = dict((wn, float(cnt + 1.0) / s) for wn,cnt in wndict.items())
-        # 生成ARPA中的prob和prob_bo
-        self.prob = {}
-        self.prob_bo = {}
-        for context,wndict in self.items():
-            for wn,p in wndict.items():
-                self.prob[context + (wn,)] = math.log10(p)
         # 递归计算概率
         if self.backoff != None:
             self.backoff._estimate(smoothing)
@@ -180,7 +165,7 @@ class NGramModel(dict):
         return alpha
 
     def _logprob(self, word:str, context:Tuple[str])->float:
-        """使用回退法（Katz Backoff）估计一个ngram的概率
+        """使用回退法（Katz Backoff）估计一个ngram的log概率
 
         一个ngram为(context, word)，计算概率公式：log10(P(word | context))。
 
@@ -210,14 +195,16 @@ class NGramModel(dict):
         ppl = math.pow(10, -prob/len(sentence))
         return ppl
 
-class NGramModelSaver:
-    """NGram的lm模型生成"""
+class NGramModelARPA:
+    """NGram的ARPA格式模型"""
 
     # LM标识字符串
-    LmData     = "\n\\data\\\n"
-    LmDataNum  = "ngram {}={}"
-    LmNgrams   = "\n\\{}-grams:"
-    LmEnd      = "\n\\end\\\n"
+    LmData       = "\\data\\"
+    LmDataNum    = "ngram {}={}"
+    LmDataNumPat = r'ngram \d*=\d*'
+    LmNgrams     = "\\{}-grams:"
+    LmNgramsPat  = r'\\(\d)*-grams:'
+    LmEnd        = "\\end\\"
     # LM数据
     LmSections = {
         'comment': [],
@@ -225,47 +212,116 @@ class NGramModelSaver:
         'grams': []
         }
 
-    def __init__(self, model:NGramModel):
-        """初始化"""
+    def _init(self, model:NGramModel):
+        """根据NGramModel初始化"""
+        self.order = model.order
         self.model = model
+        if self.order > 1:
+            self.backoff = NGramModelARPA()
+            self.backoff._init(model.backoff)
+        else:
+            self.backoff = None
+        # TODO:生成ARPA中的prob和prob_bo
+        self.prob = {}
+        self.prob_bo = {}
+        for context,wndict in self.model.items():
+            for wn,p in wndict.items():
+                self.prob[context + (wn,)] = math.log10(p)
 
-    def _appen_model(self, m:NGramModel):
-        """生成模型数据"""
-        if m.backoff != None:
-            self._appen_model(m.backoff)
-        self.lm['data'].append(self.LmDataNum.format(m.order, len(m.counter.ngrams)))
-        grams = [self.LmNgrams.format(m.order)]
+    def _lm_data(self, lm:dict):
+        """生成ARPA模型数据"""
+        if self.backoff != None:
+            self.backoff._lm_data(lm)
+        lm['data'].append(self.LmDataNum.format(self.order, len(self.prob)))
+        grams = [self.LmNgrams.format(self.order)]
         try:
-            for k,v in m.prob.items():
+            for k,v in self.prob.items():
                 line = "{}\t{}".format(v, CharSpace.join(k))
                 try:
-                    if k in m.prob_bo.keys():
-                        line += "\t{}".format(m.prob_bo[k])
+                    if k in self.prob_bo.keys():
+                        line += "\t{}".format(self.prob_bo[k])
                 except Exception:
                     pass
                 grams.append(line)
         except Exception as e:
             pass
-        self.lm['grams'].append(grams)
+        lm['grams'].append(grams)
 
-    def _make_model(self):
-        """生成模型文本"""
+    def _lm_text(self):
+        """生成ARPA模型文本"""
+        # 生成LM数据
+        lm = self.LmSections.copy()
+        self._lm_data(lm)
+        # 生成LM文本
         text = ""
-        text += CharLF.join(self.lm['comment'])
-        text += self.LmData
-        text += CharLF.join(self.lm['data']) + "\n"
-        for k in self.lm['grams']:
-            text += CharLF.join(k) + "\n"
-        text += self.LmEnd
+        text += CharLF.join(lm['comment'])
+        text += CharLF + self.LmData + CharLF
+        text += CharLF.join(lm['data']) + CharLF
+        for k in lm['grams']:
+            text += CharLF + CharLF.join(k) + CharLF
+        text += CharLF + self.LmEnd + CharLF
         return text
 
-    def save(self, filename):
+    def save(self, model:NGramModel, filename):
         """保存ARPA语言模型"""
-        self.lm = self.LmSections.copy()
-        self._appen_model(self.model)
+        self._init(model)
         with open(filename, mode='w', encoding='utf-8') as fp:
-            fp.write(self._make_model())
+            fp.write(self._lm_text())
 
     def load(self, filename):
         """加载ARPA语言模型"""
-        raise Exception("Not implemented")
+        arpa = ""
+        mods = []
+        self.order = 0
+        with open(filename, mode='r', encoding='utf-8') as fp:
+            for line in fp:
+                line = line.strip()
+                # Empty
+                if not line:
+                    continue
+                if arpa == "":
+                    # Wait \data\
+                    if line == self.LmData:
+                        arpa = self.LmData
+                elif arpa == self.LmData:
+                    if re.match(self.LmDataNumPat, line) != None:
+                        # get order
+                        self.order += 1
+                    elif re.match(self.LmNgramsPat, line) != None:
+                        # init backoff
+                        self.prob = {}
+                        self.prob_bo = {}
+                        mods.append(self)
+                        for k in range(self.order - 1):
+                            mods[k].backoff = NGramModelARPA()
+                            mods[k].backoff.prob = {}
+                            mods[k].backoff.prob_bo = {}
+                            mods.append(mods[k].backoff)
+                        arpa = self.LmNgrams
+                if arpa == self.LmNgrams:
+                    ret = re.match(self.LmNgramsPat, line)
+                    if ret != None:
+                        # get n
+                        nr = int(ret.group(1))
+                    else:
+                        if line == self.LmEnd:
+                            # Wait \end\
+                            arpa = self.LmEnd
+                        else:
+                            # get prob
+                            seps = line.split()
+                            p = float(seps[0])
+                            w = tuple(seps[1:nr+1])
+                            mods[self.order - nr].prob[w] = p
+                            if len(seps) >= nr + 2:
+                                pb = float(seps[nr+1])
+                                mods[self.order - nr].prob_bo[w] = pb
+
+    def _logprob(self, word:str, context:Tuple[str])->float:
+        """使用ARPA模型参数计算一个ngram的log概率"""
+        w = context + (word,)
+        if w in self.prob.keys():
+            return self.prob[w]
+        else:
+            # TODO: 添加prob_bo不存在context的情况
+            return self.backoff.prob_bo[context] + self.backoff._logprob(word, context[1:])
