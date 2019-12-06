@@ -40,8 +40,8 @@ nc = NGramCounter(order, tokens)
 ng = NGramModel(nc)
 # print(ng._logprob("阳春", ("绿", "是")))
 # print(ng._logprob("用时", ("绿", "是")))
-# token = Tokenizer.get_tokens("今天 如此 娃哈哈 过去 甚至 延至 三十一日 违反 县级 另外 原则上 排名 看不到 的 情况")
-token = tokens[1]
+token = Tokenizer.get_tokens("今天 如此 娃哈哈 过去 甚至 延至 三十一日 违反 县级 另外 原则上 排名 看不到 的 情况")
+# token = tokens[1]
 print(ng.calc_ppl(token))
 
 

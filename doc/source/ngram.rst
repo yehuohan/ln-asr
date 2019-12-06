@@ -124,6 +124,7 @@ N元语法模型（N-Gram Model）是根据前面出现的N-1个单词来猜测�
 :参考:
 
 - `Speech and Language Processing <https://web.stanford.edu/~jurafsky/slp3>`_
+- `nltk.model.ngram <http://www.nltk.org/_modules/nltk/model/ngram.html>`_
 - `github.com/KAMI-Wei/ml-model <https://github.com/KAMI-Wei/ml-model>`_
 - `github.com/daandouwe/ngram-lm <https://github.com/daandouwe/ngram-lm>`_
 - `github.com/adroitous/Naive-Bayes-Classifier-with-Katz-Backoff <https://github.com/adroitous/Naive-Bayes-Classifier-with-Katz-Backoff>`_

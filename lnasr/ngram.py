@@ -123,6 +123,7 @@ class NGramModel(dict):
             - nc: NGram计数模型
         """
         self.order = nc.order
+        self.ngrams = nc.ngrams
         self.counter = nc
         # 递归生成低阶NGram模型
         if self.order > 1:
@@ -160,7 +161,6 @@ class NGramModel(dict):
             alpha = beta / (1.0 - self.DisCount * alpha)
         else:
             # C(w1 ~ w[n-1]) = 0
-            beta = 1.0
             alpha = 1.0
         return alpha
 
@@ -174,7 +174,7 @@ class NGramModel(dict):
             - context: 第1~n个token序列，(w1 ~ w[n-1])
         """
         w = context + (word,)
-        if w in self.counter.ngrams or self.order == 1:
+        if w in self.ngrams or self.order == 1:
             # TODO:添加1-gram也没有w的情况，即计数为零的情况
             # TODO:处理计数为1的情况
             # TODO:使用动态打折系数，而不是固定的
@@ -323,5 +323,4 @@ class NGramModelARPA:
         if w in self.prob.keys():
             return self.prob[w]
         else:
-            # TODO: 添加prob_bo不存在context的情况
-            return self.backoff.prob_bo[context] + self.backoff._logprob(word, context[1:])
+            return self.backoff.prob_bo.get(context, 0) + self.backoff._logprob(word, context[1:])
