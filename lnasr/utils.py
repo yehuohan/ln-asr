@@ -6,6 +6,7 @@
 """
 
 import numpy as np
+import pyaudio
 import wave
 
 Punctuation_Ascii_Set = {
@@ -45,6 +46,45 @@ Punctuation_Unicode_Set = {
     '【',
     '】'
     }
+
+def recording(time, pcmfile=None, wavefile=None)->np.ndarray:
+    """获取录音PCM数据
+
+    PCM为单通道，16KHz，16bit，小端格式
+
+    :Parameters:
+        - time: 录音时间，单位为秒，可为浮点数
+        - pcmfile: 保存PCM文件
+        - waveilfe: 保存wave文件
+
+    :Returns: 返回录音数据
+    """
+    pa = pyaudio.PyAudio()
+    stream = pa.open(rate=16000, channels=1, format=pyaudio.paInt16,
+            input=True, frames_per_buffer=160)
+    print("start recording...")
+    frames = []
+    for k in range(int(16000 / 160 * time)):
+        # 共16000*time个16bit采样点，每次读取160个16bit采样点
+        data = stream.read(160)
+        frames.append(data)
+    print("stop recording")
+    stream.stop_stream()
+    stream.close()
+    pa.terminate()
+    data = np.frombuffer(b''.join(frames), dtype=np.int16)
+    # 保存音频
+    if pcmfile != None:
+        data.tofile(pcmfile)
+    if wavefile != None:
+        fp = wave.open(wavefile, 'wb')
+        fp.setnchannels(1)
+        fp.setsampwidth(pa.get_sample_size(pyaudio.paInt16))
+        fp.setframerate(16000)
+        fp.writeframes(data)
+        fp.close()
+    # 转换成ndarray格式
+    return data
 
 def read_wave(filename:str)->np.ndarray:
     """获取wave音频数据和频率
@@ -105,6 +145,3 @@ def create_hamming(N:int)->np.ndarray:
         w(n) = 0.54 - 0.46 \cdot cos(2 \cdot \\pi \cdot \cfrac{n}{N - 1})
     """
     return (0.54 - 0.46 * np.cos(2 * np.pi * np.arange(N) / (N - 1)))
-
-if __name__ == "__main__":
-    print(split_frames(np.arange(30), 3, 2))
