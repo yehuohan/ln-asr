@@ -97,20 +97,14 @@ def read_wave(filename:str)->np.ndarray:
     wparams = fp.getparams()
     data = fp.readframes(wparams.nframes * wparams.sampwidth)
     fp.close()
-    wdata = np.empty(wparams.nframes, dtype=np.int16)
-    for k in np.arange(wparams.nframes):
-        wdata[k] = (data[2*k+1] << 8) | data[2*k]
+    wdata = np.frombuffer(data, dtype=np.int16)
     return (wdata, wparams.framerate)
 
 def read_pcm(filename:str)->np.ndarray:
     """读取PCM语音数据(单通道，16bit，小端)"""
     with open(filename, 'rb') as fp:
         data = fp.read()
-        size = fp.tell() // 2
-        pcm = np.zeros((size), dtype=np.int16)
-        for k in range(size):
-            pcm[k] = (data[2*k]) | (data[2*k+1]<<8)
-    return pcm
+        return np.frombuffer(data, dtype=np.int16)
 
 def split_frames(signal:np.ndarray, L, S):
     """信号分帧
