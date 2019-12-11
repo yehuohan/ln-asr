@@ -115,54 +115,94 @@ class NGramModel(dict):
     """中文NGram模型，这里使用3元模型，即TriGram"""
 
     DisCount = 0.7
+    K = 0
 
-    def __init__(self, nc:NGramCounter):
+    def __init__(self, ng):
         """初始化
 
         :Parameters:
-            - nc: NGram计数模型
+            - ng: NGram计数模型或ARPA模型
         """
-        self.order = nc.order
-        self.ngrams = nc.ngrams
-        self.counter = nc
-        # 递归生成低阶NGram模型
-        if self.order > 1:
-            self.backoff = NGramModel(self.counter.backoff)
-        else:
-            self.backoff = None
-        # self._estimate('AddOne')
-        self._estimate(None)
+        self.order = ng.order
+        if isinstance(ng, NGramCounter):
+            self.prob = {}
+            self.prob_bo = {}
+            # 递归生成低阶NGram模型
+            counter = ng
+            self._estimate_prob(counter)
+            if self.order > 1:
+                self.backoff = NGramModel(counter.backoff)
+                self._estimate_alpha()
+            else:
+                self.backoff = None
+                self.prob_bo = {}
+        elif isinstance(ng, NGramModelARPA):
+            self.prob = ng.prob
+            if self.order > 1:
+                self.backoff = NGramModel(ng.backoff)
+                # 从ARPA生成NGram模型时中，n-grams元的alpha系数，来自(n-1)-grams中
+                self.prob_bo = ng.backoff.prob_bo
+            else:
+                self.backoff = None
+                self.prob_bo = {}
 
-    def _estimate(self, smoothing):
-        """估计模型概率"""
+    def _estimate_prob(self, counter:NGramCounter):
+        """估计模型打折概率，基于（Katz Backoff）
+
+        :Parameters:
+            - ng: NGram计数模型
+        """
+        # TODO:使用Good-Turing，处理1-gram也没有w的情况，即计数为零的情况
+        # 计算C(w1 ~ w[n]) > K的打折概率
+        for context,wndict in counter.items():
+            # 固定打折系数
+            s = float(sum(wndict.values()))
+            d = dict((wn, self.DisCount * float(cnt) / s) for wn,cnt in wndict.items() if cnt > self.K)
+            if d:
+                self[context] = d
+        # 计算log概率
+        self.prob = {}
+        for context,wndict in self.items():
+            for wn,p in wndict.items():
+                self.prob[context + (wn,)] = math.log10(p)
+
+    def _estimate_alpha(self):
+        """估计模型打折系数，基于（Katz Backoff）"""
+        # 计算C(w1 ~ w[n]) <= K的回退系数alpha(w1 ~ w[n-1])
+        self.prob_bo = {}
+        for context,wndict in self.items():
+            beta = 1.0 - sum(self[context].values())
+            alpha = 0.0
+            for wn in self[context].keys():
+                # 若C(w1 ~ w[n])>K，则必有C(w2 ~ w[n])>K
+                alpha += self.backoff[context[1:]][wn]
+            self.prob_bo[context] = math.log10(beta / (1.0 - alpha))
+
+    def _estimate_smothing(self, counter:NGramCounter, smoothing):
+        """估计模型概率
+
+        :Parameters:
+            - ng: NGram计数模型
+        """
         if smoothing == None:
             # 无平滑（直接使用MLE）
-            for context,wndict in self.counter.items():
+            for context,wndict in counter.items():
                 s = float(sum(wndict.values()))
                 self[context] = dict((wn, float(cnt) / s) for wn,cnt in wndict.items())
         elif smoothing == 'AddOne':
             # 加1平滑
-            for context,wndict in self.counter.items():
+            for context,wndict in counter.items():
                 s = float(sum(wndict.values()) + len(wndict))
                 self[context] = dict((wn, float(cnt + 1.0) / s) for wn,cnt in wndict.items())
-        # 递归计算概率
-        if self.backoff != None:
-            self.backoff._estimate(smoothing)
 
-    def _alpha(self, context:Tuple[str])->float:
+    def _logalpha(self, context:Tuple[str])->float:
         """计算回退权值alpha"""
-        if context in self.keys():
-            # C(w1 ~ w[n-1]) > 0
-            beta = 1.0 - self.DisCount * sum(self[context].values())
-            alpha = 0.0
-            for wn in self[context].keys():
-                # 若C(w1 ~ w[n])>0，则必有C(w2 ~ w[n])>0
-                alpha += self.backoff[context[1:]][wn]
-            alpha = beta / (1.0 - self.DisCount * alpha)
+        if context in self.prob_bo.keys():
+            # 存在(w1 ~ w[n-1])
+            return self.prob_bo[context]
         else:
-            # C(w1 ~ w[n-1]) = 0
-            alpha = 1.0
-        return alpha
+            # 不存在(w1 ~ w[n-1])，直接回退到n-2
+            return 0.0
 
     def _logprob(self, word:str, context:Tuple[str])->float:
         """使用回退法（Katz Backoff）估计一个ngram的log概率
@@ -174,13 +214,10 @@ class NGramModel(dict):
             - context: 第1~n个token序列，(w1 ~ w[n-1])
         """
         w = context + (word,)
-        if w in self.ngrams or self.order == 1:
-            # TODO:添加1-gram也没有w的情况，即计数为零的情况
-            # TODO:处理计数为1的情况
-            # TODO:使用动态打折系数，而不是固定的
-            return math.log10(self.DisCount * self[context][word])
+        if (w in self.prob.keys()) or self.order == 1:
+            return self.prob[w]
         else:
-            return math.log10(self._alpha(context)) + self.backoff._logprob(word, context[1:])
+            return self._logalpha(context) + self.backoff._logprob(word, context[1:])
 
     def calc_prob(self, sentence:Tuple[str])->float:
         """计算概率（probability）"""
@@ -215,18 +252,14 @@ class NGramModelARPA:
     def _init(self, model:NGramModel):
         """根据NGramModel初始化"""
         self.order = model.order
-        self.model = model
+        self.prob = model.prob
         if self.order > 1:
             self.backoff = NGramModelARPA()
             self.backoff._init(model.backoff)
+            # 在ARPA格式中，n-grams元的alpha系数，放在(n-1)-grams中
+            self.backoff.prob_bo = model.prob_bo
         else:
             self.backoff = None
-        # TODO:生成ARPA中的prob和prob_bo
-        self.prob = {}
-        self.prob_bo = {}
-        for context,wndict in self.model.items():
-            for wn,p in wndict.items():
-                self.prob[context + (wn,)] = math.log10(p)
 
     def _lm_data(self, lm:dict):
         """生成ARPA模型数据"""
@@ -240,7 +273,7 @@ class NGramModelARPA:
                 try:
                     if k in self.prob_bo.keys():
                         line += "\t{}".format(self.prob_bo[k])
-                except Exception:
+                except Exception as e:
                     pass
                 grams.append(line)
         except Exception as e:
@@ -268,8 +301,8 @@ class NGramModelARPA:
         with open(filename, mode='w', encoding='utf-8') as fp:
             fp.write(self._lm_text())
 
-    def load(self, filename):
-        """加载ARPA语言模型"""
+    def _lm_parse(self, filename):
+        """解析lm文件"""
         arpa = ""
         mods = []
         self.order = 0
@@ -296,6 +329,7 @@ class NGramModelARPA:
                             mods[k].backoff = NGramModelARPA()
                             mods[k].backoff.prob = {}
                             mods[k].backoff.prob_bo = {}
+                            mods[k].backoff.order = mods[k].order - 1
                             mods.append(mods[k].backoff)
                         arpa = self.LmNgrams
                 if arpa == self.LmNgrams:
@@ -317,10 +351,7 @@ class NGramModelARPA:
                                 pb = float(seps[nr+1])
                                 mods[self.order - nr].prob_bo[w] = pb
 
-    def _logprob(self, word:str, context:Tuple[str])->float:
-        """使用ARPA模型参数计算一个ngram的log概率"""
-        w = context + (word,)
-        if w in self.prob.keys():
-            return self.prob[w]
-        else:
-            return self.backoff.prob_bo.get(context, 0) + self.backoff._logprob(word, context[1:])
+    def load(self, filename):
+        """加载ARPA语言模型"""
+        self._lm_parse(filename)
+        return self

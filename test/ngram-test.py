@@ -46,6 +46,6 @@ print(ng.calc_ppl(token))
 
 
 #%% ARPA格式模型
-nga = NGramModelARPA()
-# nga.save(ng, 'trigram.lm')
-# nga.load('trigram.lm')
+NGramModelARPA().save(ng, 'trigram.lm')
+new_ng = NGramModel(NGramModelARPA().load('trigram.lm'))
+print(new_ng.calc_ppl(token))
