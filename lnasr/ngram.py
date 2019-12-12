@@ -115,7 +115,8 @@ class NGramModel(dict):
     """中文NGram模型，这里使用3元模型，即TriGram"""
 
     DisCount = 0.7
-    K = 0
+    K = 5
+    NInf = -1e300
 
     def __init__(self, ng):
         """初始化
@@ -152,19 +153,13 @@ class NGramModel(dict):
         :Parameters:
             - ng: NGram计数模型
         """
-        # TODO:使用Good-Turing，处理1-gram也没有w的情况，即计数为零的情况
-        # 计算C(w1 ~ w[n]) > K的打折概率
-        for context,wndict in counter.items():
-            # 固定打折系数
-            s = float(sum(wndict.values()))
-            d = dict((wn, self.DisCount * float(cnt) / s) for wn,cnt in wndict.items() if cnt > self.K)
-            if d:
-                self[context] = d
+        self._estimate_prob_discount(counter, self.DisCount, 0)
+        # self._estimate_prob_goodturing(counter, self.K)
         # 计算log概率
         self.prob = {}
         for context,wndict in self.items():
             for wn,p in wndict.items():
-                self.prob[context + (wn,)] = math.log10(p)
+                self.prob[context + (wn,)] = math.log10(p) if p > 0 else self.NInf
 
     def _estimate_alpha(self):
         """估计模型打折系数，基于（Katz Backoff）"""
@@ -176,7 +171,33 @@ class NGramModel(dict):
             for wn in self[context].keys():
                 # 若C(w1 ~ w[n])>K，则必有C(w2 ~ w[n])>K
                 alpha += self.backoff[context[1:]][wn]
-            self.prob_bo[context] = math.log10(beta / (1.0 - alpha))
+            alpha = beta / (1.0 - alpha)
+            self.prob_bo[context] = math.log10(alpha) if alpha > 0 else self.NInf
+
+    def _estimate_prob_discount(self, counter:NGramCounter, discount, k):
+        """计算C(w1 ~ w[n]) > k的固定打折概率"""
+        for context,wndict in counter.items():
+            s = float(sum(wndict.values()))
+            d = dict((wn, discount * float(cnt) / s) for wn,cnt in wndict.items() if cnt > k)
+            if d:
+                self[context] = d
+
+    def _estimate_prob_goodturing(self, counter:NGramCounter, k):
+        """计算(w1 ~ w[n])的Good-Turing打折概率"""
+        # TODO: Nc等于零问题
+        for context,wndict in counter.items():
+            self[context] = {}
+            s = float(sum(wndict.values()))
+            Nc = Counter(wndict.values())
+            for wn,c in wndict.items():
+                if c > k:
+                    self[context][wn] = float(c) / s
+                else:
+                    cstar = float((c + 1.0) * Nc[c + 1] / Nc[c]) - float(c * (k + 1.0) * Nc[k + 1] / Nc[1])
+                    cstar /= float((1.0 - (k + 1) * Nc[k + 1] / Nc[1]))
+                    self[context][wn] =  cstar / s
+            if self.order == 1:
+                self[context][None] = float(Nc[1]) / s
 
     def _estimate_smothing(self, counter:NGramCounter, smoothing):
         """估计模型概率

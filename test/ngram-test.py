@@ -17,10 +17,8 @@ import math
 order = 3
 
 # 获取数据索引
-thchs30 = './data_thchs30/data'
-wav_files = glob.glob(thchs30 + '/*.wav')
+thchs30 = './data_thchs30/trn'
 trn_files = glob.glob(thchs30 + '/*.wav.trn')
-txt_files = glob.glob(thchs30 + '/*.txt')
 
 #%% 字符串序列化
 tokens = []
