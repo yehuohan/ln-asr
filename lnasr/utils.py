@@ -139,3 +139,69 @@ def create_hamming(N:int)->np.ndarray:
         w(n) = 0.54 - 0.46 \cdot cos(2 \cdot \\pi \cdot \cfrac{n}{N - 1})
     """
     return (0.54 - 0.46 * np.cos(2 * np.pi * np.arange(N) / (N - 1)))
+
+def lse(seq:np.ndarray, axis=None)->np.ndarray:
+    """log-sum-exp
+
+    计算log(sum(e**si))，即log(e**s1 + e**s2 + ...)，因为有sum，故会降低一个维度。
+    axis为None时，取所有元素；
+    axis为int时，对维度遍历；
+    axis为tuple，对tuple中维度依次遍历，注意：tuple的维度必须升序排列。
+
+    ::
+
+        设 y = x + d
+        log(e**x + e**y) = log(e**x * (1 + e**d))
+                         = x + log(1 + e**d)
+
+    :Parameters:
+        - axis: 计算维度
+    """
+    if axis == None:
+        return lse(seq.ravel(), 0)
+    elif isinstance(axis, tuple):
+        if len(axis) == 0:
+            return seq
+        elif len(axis) == 1:
+            return lse(seq, axis[0])
+        elif len(axis) > 1:
+            return lse(lse(seq, axis[-1]), axis[:-1])
+    elif isinstance(axis, int):
+        if seq.shape[axis] == 0:
+            return np.full(tuple(filter(lambda d:d!=0, seq.shape)), -np.inf)
+        elif seq.shape[axis] == 1:
+            return seq.take(0, axis)
+        elif seq.shape[axis] == 2:
+            return np.logaddexp(seq.take(0, axis), seq.take(1, axis))
+        else:
+            # 对于长度列，递归计算可能超过最大递归次数
+            # return np.logaddexp(seq.take(0, axis), lse(seq.take(np.arange(1, seq.shape[axis]), axis), axis))
+            res = seq.take(0, axis)
+            for k in np.arange(1, seq.shape[axis]):
+                res = np.logaddexp(res, seq.take(k, axis))
+            return res
+
+def lse2(seq:np.ndarray, axis=None)->np.ndarray:
+    """log-sum-exp2"""
+    if axis == None:
+        return lse2(seq.ravel(), 0)
+    elif isinstance(axis, tuple):
+        if len(axis) == 0:
+            return seq
+        elif len(axis) == 1:
+            return lse2(seq, axis[0])
+        elif len(axis) > 1:
+            return lse2(lse2(seq, axis[-1]), axis[:-1])
+    elif isinstance(axis, int):
+        if seq.shape[axis] == 0:
+            return np.full(tuple(filter(lambda d:d!=0, seq.shape)), -np.inf)
+        elif seq.shape[axis] == 1:
+            return seq.take(0, axis)
+        elif seq.shape[axis] == 2:
+            return np.logaddexp2(seq.take(0, axis), seq.take(1, axis))
+        else:
+            # return np.logaddexp2(seq.take(0, axis), lse2(seq.take(np.arange(1, seq.shape[axis]), axis), axis))
+            res = seq.take(0, axis)
+            for k in np.arange(1, seq.shape[axis]):
+                res = np.logaddexp2(res, seq.take(k, axis))
+            return res
