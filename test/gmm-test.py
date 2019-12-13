@@ -82,6 +82,8 @@ Sigma[1] = np.array([[1.0, 0.3],
 Sigma[2] = np.array([[1.0, 0.3],
                      [0.2, 1.0]], dtype=np.float)
 f = gaussian_mixture_distribution(c, x, mu, Sigma).reshape(L, L)
+# print(np.log(f)[:10, :10])
+# print(gaussian_mixture_distribution_log(np.log(c), x, mu, Sigma).reshape(L, L)[:10, :10])
 plt.figure('Gaussian mixture model')
 plt.connect('key_press_event', on_key)
 ax = plt.subplot(121, projection='3d')

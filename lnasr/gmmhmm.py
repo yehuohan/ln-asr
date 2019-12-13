@@ -8,6 +8,7 @@
 import sys,os
 sys.path.append(os.getcwd() + '/../')
 
+from lnasr.utils import lse
 from lnasr.gmm import *
 from lnasr.hmm import HMM
 import numpy as np
@@ -26,9 +27,11 @@ class GMMHMM(HMM):
     - mu: 均值矢量(NxMxD)，
     - Sigma: 协方差矩阵(NxM x DXD)
     - obs: 一个观测度序列O(TxD)
+
+    A, pi, w的概率值使用log概率，对数底为e。
     """
 
-    def __init__(self, n:int, m:int, d:int=1,
+    def __init__(self, n:int=1, m:int=1, d:int=1,
             A:np.matrix=None, pi:np.ndarray=None,
             w:np.ndarray=None, mu:np.ndarray=None, si:np.ndarray=None,
             precision=np.double):
@@ -52,16 +55,16 @@ class GMMHMM(HMM):
             - obs: 观测序列
         """
         T = obs.shape[0]
-        self.b = np.zeros((self.n, T), dtype=self.precision)
-        self.bm = np.zeros((self.n, self.m, T), dtype=self.precision)
+        self.b = np.empty((self.n, T), dtype=self.precision)
+        self.bm = np.empty((self.n, self.m, T), dtype=self.precision)
         # 可以直接使用gaussian_mixture_distribution计算，但没法获取混合分量
         # for j in np.arange(self.n):
-        #     self.b[j] = gaussian_mixture_distribution(
+        #     self.b[j] = gaussian_mixture_distribution_log(
         #             self.w[j], obs, self.mu[j], self.si[j])
         for j in np.arange(self.n):
             for m in np.arange(self.m):
-                self.bm[j, m] = gaussian_multi_distribution(obs, self.mu[j, m], self.si[j, m])
-            self.b[j] = np.dot(self.w[j].reshape(1, self.m), self.bm[j])
+                self.bm[j, m] = gaussian_multi_distribution_log(obs, self.mu[j, m], self.si[j, m])
+            self.b[j] = lse(self.w[j].reshape(self.m, 1) + self.bm[j], axis=0)
 
     def _estimate(self, obs:np.ndarray, alpha, beta, xi, gamma):
         """计算Maximization模型新参数
@@ -77,27 +80,30 @@ class GMMHMM(HMM):
         T = obs.shape[0]
         # M-Step: new A,pi,mu,si,w
         # A[NxN]
-        A = np.sum(xi, axis=0) / np.sum(gamma, axis=0).reshape((self.n, 1))
+        A = lse(xi, axis=0) - lse(gamma, axis=0).reshape((self.n, 1))
 
         # pi[N]
         pi = gamma[0]
 
         # xi_mix[TxNxM]
-        xi_mix = np.zeros((T, self.n, self.m), dtype=self.precision)
+        xi_mix = np.empty((T, self.n, self.m), dtype=self.precision)
         for t in np.arange(T):
             """
             # 用2层for循环，便于理解数组乘法代替for循环
             for j in np.arange(self.n):
-                xi_mix[t, j, :] = (alpha[t, j] * beta[t, j] * self.w[j, :] * self.bm[j, :, t])
-                xi_mix[t, j, :] /= np.dot(alpha[t], beta[t])
-                xi_mix[t, j, :] /= np.dot(self.w[j], self.bm[j, :, t])
+                xi_mix[t, j, :] = (alpha[t, j] + beta[t, j] + self.w[j, :] + self.bm[j, :, t])
+                xi_mix[t, j, :] -= lse(alpha[t] + beta[t])
+                xi_mix[t, j, :] -= lse(self.w[j] + self.bm[j, :, t])
             """
-            xi_mix[t] = (alpha[t] * beta[t]).reshape(self.n, 1) * self.w * self.bm[:, :, t]
-            xi_mix[t] /= np.dot(alpha[t], beta[t])
-            xi_mix[t] /= np.sum(self.w * self.bm[:, :, t], axis=1).reshape(self.n, 1)
+            xi_mix[t] = (alpha[t] + beta[t]).reshape(self.n, 1) + self.w + self.bm[:, :, t]
+            xi_mix[t] -= lse(alpha[t]+ beta[t])
+            xi_mix[t] -= lse(self.w + self.bm[:, :, t], axis=1).reshape(self.n, 1)
 
         # w[NxM]
-        w = np.sum(xi_mix, axis=0) / np.sum(xi_mix, axis=(0, 2)).reshape(self.n, 1)
+        w = lse(xi_mix, axis=0) - lse(xi_mix, axis=(0, 2)).reshape(self.n, 1)
+
+        # xi_mix取exp，用于计算非log值的均值和方差
+        xi_mix = np.exp(xi_mix)
 
         # mu[NxMxD]
         """
@@ -157,25 +163,29 @@ class GMMHMM(HMM):
         self.si = model['si']
         self.w = model['w']
 
-    def reset(self, init_type=None):
+    def reset(self, init_type):
         """初始化训练参数
 
         :Returns:
             - init_type: 初始化类型，默认全部初始化为零
         """
-        if init_type == None:
-            self.A = np.zeros((self.n, self.n), dtype=self.precision)
-            self.pi = np.zeros(self.n, dtype=self.precision)
-            self.w = np.zeros((self.n, self.m), dtype=self.precision)
+        if init_type == 'uniform':
+            self.A = np.log(np.ones((self.n, self.n), dtype=self.precision) * (1.0 / self.n))
+            self.pi = np.log(np.ones(self.n, dtype=self.precision) * (1.0 / self.n))
+            self.w = np.log(np.ones((self.n, self.m), dtype=self.precision) * (1.0 / self.m))
             self.mu = np.zeros((self.n, self.m, self.d), dtype=self.precision)
             self.si = np.zeros((self.n, self.m, self.d, self.d), dtype=self.precision)
-        elif init_type == 'uniform':
-            self.A = np.ones((self.n, self.n), dtype=self.precision) * (1.0 / self.n)
-            self.pi = np.ones(self.n, dtype=self.precision) * (1.0 / self.n)
-            self.w = np.ones((self.n, self.m), dtype=self.precision) * (1.0 / self.m)
-            self.mu = np.zeros((self.n, self.m, self.d), dtype=self.precision)
-            self.si = np.empty((self.n, self.m, self.d, self.d), dtype=self.precision)
             self.si[:, :] = np.eye(self.d, dtype=self.precision)
+        elif init_type == 'random':
+            a = np.random.random_sample((self.n, self.n))
+            pi = np.random.random_sample((self.n))
+            w = np.random.random_sample((self.n, self.m))
+            self.A = np.log(a / a.sum(axis=1)[:, np.newaxis])
+            self.pi = np.log(pi / np.sum(pi))
+            self.w = np.log(w / w.sum(axis=1)[:, np.newaxis])
+            self.mu = np.array(0.6 * np.random.random_sample((self.n, self.m, self.d)) - 0.3, dtype=self.precision)
+            self.si = np.zeros((self.n, self.m, self.d, self.d), dtype=self.precision)
+            self.si[:, :] = np.eye((self.d), dtype=self.precision)
 
     def save(self, filename):
         """保存模型参数"""

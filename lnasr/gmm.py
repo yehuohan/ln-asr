@@ -3,8 +3,14 @@
 
 """
 高斯混合模型（Gaussian Mixture Model, GMM）
+
+ - log: 对数高斯概率以e为底（带_log的函数），但其中的均值、方差不用取对数。
 """
 
+import sys,os
+sys.path.append(os.getcwd() + '/../')
+
+from lnasr.utils import lse
 import numpy as np
 
 def gaussian_distribution(x:np.ndarray, mu, sigma2)->np.ndarray:
@@ -67,7 +73,7 @@ def gaussian_mixture_distribution(c:np.ndarray, x:np.ndarray, mu:np.ndarray, Sig
     这里必须保证每个高斯分布的D相同。
 
     :Parameters:
-        - c: 混合系统（Mx1）
+        - c: 混合系数（Mx1）
         - x: 自变量（二维数组LxD，D为变量维度）
         - mu: 均值（MxD）
         - Sigma: 协方差矩阵（MxDxD)
@@ -82,5 +88,13 @@ def gaussian_mixture_distribution(c:np.ndarray, x:np.ndarray, mu:np.ndarray, Sig
     return np.dot(c.reshape(1, M), val)
 
 def gaussian_mixture_distribution_log(c:np.ndarray, x:np.ndarray, mu:np.ndarray, Sigma:np.ndarray):
-    """混合高斯分布（对数概率）"""
-    return np.log(gaussian_mixture_distribution(c, x, mu, Sigma))
+    """混合高斯分布（对数概率）
+
+    混合系数需要取对数。
+    """
+    M = c.shape[0]
+    L, D = x.shape
+    val = np.empty((M, L), dtype=np.float)
+    for k in np.arange(M):
+        val[k] = gaussian_multi_distribution_log(x, mu[k], Sigma[k])
+    return lse(c.reshape(M, 1) + val, axis=0)

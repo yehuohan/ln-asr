@@ -5,6 +5,10 @@
 隐马尔可夫模型（Hidden Markov Model, HMM）
 """
 
+import sys,os
+sys.path.append(os.getcwd() + '/../')
+
+from lnasr.utils import lse
 import numpy as np
 import h5py
 
@@ -18,9 +22,17 @@ class HMM:
     - B: 发射概率(NxM)，B[i, ot]表示状态i生成观测ot概率（观测ot时状态为i的概率）
     - pi: 初始概率分布(Nx1)
     - obs: 一个观测度序列O(T)
+
+    A, B, pi等变量的概率值使用log概率，对数底为e。
+    故对于forward, backward等算法，公式形式有所变化：
+    - np.zeros: 改成-np.inf，因为log(0)=-inf
+    - np.ones: 改成np.exp(np.ones)
+    - np.multiply: 改成加法，log(a*b)=log(a)+log(b)
+    - np.divide: 必成减法，log(a/b)=log(a)-log(b)
+    - np.sum: 改成log-sum-exp，log(log(a) + log(b))=log(e**log(a) + e**log(b))
     """
 
-    def __init__(self, n:int, m:int,
+    def __init__(self, n:int=1, m:int=1,
             A:np.matrix=None, B:np.matrix=None, pi:np.ndarray=None,
             precision=np.double):
         """初始化HMM参数"""
@@ -43,7 +55,7 @@ class HMM:
             - obs: 观测序列O={o1, o2, ... oT}，值为观测集中的值
         """
         T = len(obs)
-        self.b = np.zeros((self.n, T), dtype=self.precision)
+        self.b = np.empty((self.n, T), dtype=self.precision)
         for t in np.arange(T):
             self.b[:, t] = self.B[:, obs[t]]
 
@@ -69,21 +81,21 @@ class HMM:
         if remap:
             self._map_b(obs)
         # 低空间复杂度版本（只能保存最后一行alpha的值）
-        # alpha = np.multiply(self.pi, self.b[:, 0])
+        # alpha = self.pi + self.b[:, 0]
         # p = np.copy(alpha)
         # for t in range(1, len(obs)):
         #     for j in range(self.n):
-        #         alpha[j] = np.sum(np.multiply(p, self.A[:, j])) * self.b[j, t]
+        #         alpha[j] = lse(p + self.A[:, j]) + self.b[j, t]
         #     p = np.copy(alpha)
-        # return np.sum(alpha)
+        # return alpha
         T = len(obs)
-        alpha = np.zeros((T, self.n), dtype=self.precision)
+        alpha = np.empty((T, self.n), dtype=self.precision)
         # 初始状态
-        alpha[0] = np.multiply(self.pi, self.b[:, 0])
+        alpha[0] = self.pi + self.b[:, 0]
         # 迭代
         for t in np.arange(1, T):
             for j in np.arange(self.n):
-                alpha[t, j] = np.dot(alpha[t-1], self.A[:, j]) * self.b[j, t]
+                alpha[t, j] = lse(alpha[t-1] + self.A[:, j]) + self.b[j, t]
         return alpha
 
     def _backward(self, obs:np.ndarray, remap:bool=False)->np.ndarray:
@@ -108,15 +120,13 @@ class HMM:
         if remap:
             self._map_b(obs)
         T = len(obs)
-        beta = np.zeros((T, self.n), dtype=self.precision)
+        beta = np.empty((T, self.n), dtype=self.precision)
         # 初始状态
-        beta[-1] = np.ones(self.n, dtype=self.precision)
+        beta[-1] = np.log(np.ones(self.n, dtype=self.precision))
         # 迭代
         for t in np.arange(T-2, -1, -1):
             for i in np.arange(self.n):
-                beta[t, i] = np.sum(
-                        np.multiply(np.multiply(beta[t+1], self.A[i, :]),
-                            self.b[:, t+1]))
+                beta[t, i] = lse(beta[t+1] + self.A[i, :] + self.b[:, t+1])
         return beta
 
     def _viterbi(self, obs:np.ndarray, remap:bool=False):
@@ -143,18 +153,18 @@ class HMM:
         if remap:
             self._map_b(obs)
         T = len(obs)
-        v = np.zeros((T, self.n), dtype=self.precision)
+        v = np.empty((T, self.n), dtype=self.precision)
         bt = np.zeros((T, self.n), dtype=np.uint32)
         # 初始状态
-        v[0] = np.multiply(self.pi, self.b[:, 0])
+        v[0] = self.pi + self.b[:, 0]
         # 迭代
         for t in np.arange(1, T):
             for j in np.arange(self.n):
-                val = np.multiply(v[t-1], self.A[:, j])
-                v[t, j] = np.max(val) * self.b[j, t]
+                val = v[t-1] + self.A[:, j]
+                v[t, j] = np.max(val) + self.b[j, t]
                 bt[t, j] = np.argmax(val)
         # 反向追踪(backtrace)
-        path = np.zeros(T, dtype=np.uint32)
+        path = np.empty(T, dtype=np.uint32)
         path[-1] = np.argmax(v[-1])
         for t in np.arange(T-2, -1, -1):
             path[t] = bt[t+1, path[t+1]]
@@ -176,15 +186,16 @@ class HMM:
         T = len(obs)
         # E-Step: xi(TxNxN), gamma(TxN)
         # xi[t][i][j]
-        xi = np.zeros((T, self.n, self.n), dtype=self.precision)
+        xi = np.full((T, self.n, self.n), -np.inf, dtype=self.precision)
         for t in np.arange(T-1):
-            numer = np.multiply(alpha[t, :].reshape((self.n, 1)), self.A)
-            numer = np.multiply(numer, self.b[:, t+1].reshape((1, self.n)))
-            numer = np.multiply(numer, beta[t+1, :].reshape((1, self.n)))
-            denom = np.sum(numer)
-            xi[t] = numer / denom
+            numer = alpha[t, :].reshape((self.n, 1)) \
+                    + self.A \
+                    + self.b[:, t+1].reshape((1, self.n)) \
+                    + beta[t+1, :].reshape((1, self.n))
+            denom = lse(numer)
+            xi[t] = numer - denom
         # gamma[t][i]: 对xi的j求和
-        gamma = np.sum(xi, axis=2)
+        gamma = lse(xi, axis=2)
         return xi, gamma
 
     def _estimate(self, obs:np.ndarray, alpha, beta, xi, gamma):
@@ -199,11 +210,11 @@ class HMM:
         :Returns: HMM模型参数(A,B,pi)
         """
         # M-Step: new A,B,pi
-        denom = np.sum(gamma, axis=0)
-        A = np.sum(xi, axis=0) / denom.reshape((self.n, 1))
-        B = np.zeros((self.n, self.m), dtype=self.precision)
+        denom = lse(gamma, axis=0)
+        A = lse(xi, axis=0) - denom.reshape((self.n, 1))
+        B = np.empty((self.n, self.m), dtype=self.precision)
         for k in np.arange(self.m):
-            B[:, k] = np.sum(gamma[k==obs, :], axis=0) / denom.reshape((1, self.n))
+            B[:, k] = lse(gamma[k==obs, :], axis=0) - denom.reshape((1, self.n))
         pi = gamma[0]
         # New model
         model = {}
@@ -218,20 +229,24 @@ class HMM:
         self.B = model['B']
         self.pi = model['pi']
 
-    def reset(self, init_type=None):
+    def reset(self, init_type):
         """初始化训练参数
 
         :Returns:
             - init_type: 初始化类型，默认全部初始化为零
         """
-        if init_type == None:
-            self.A = np.zeros((self.n, self.n), dtype=self.precision)
-            self.B = np.zeros((self.n, self.m), dtype=self.precision)
-            self.pi = np.zeros(self.n, dtype=self.precision)
-        elif init_type == 'uniform':
-            self.A = np.ones((self.n, self.n), dtype=self.precision) * (1.0 / self.n)
-            self.B = np.ones((self.n, self.m), dtype=self.precision) * (1.0 / self.m)
-            self.pi = np.ones(self.n, dtype=self.precision) * (1.0 / self.n)
+        if init_type == 'uniform':
+            self.A = np.log(np.ones((self.n, self.n), dtype=self.precision) * (1.0 / self.n))
+            self.B = np.log(np.ones((self.n, self.m), dtype=self.precision) * (1.0 / self.m))
+            self.pi = np.log(np.ones(self.n, dtype=self.precision) * (1.0 / self.n))
+        elif init_type == 'random':
+            # random范转(0, 1.0]，防止出现log(0)
+            a = 1.0 - np.random.random_sample((self.n, self.n))
+            b = 1.0 - np.random.random_sample((self.n, self.m))
+            pi = 1.0 - np.random.random_sample((self.n))
+            self.A = np.log(a / a.sum(axis=1)[:, np.newaxis])
+            self.B = np.log(b / b.sum(axis=1)[:, np.newaxis])
+            self.pi = np.log(pi / np.sum(pi))
 
     def save(self, filename):
         """保存模型参数"""
@@ -250,12 +265,12 @@ class HMM:
         self.n, self.m = self.B.shape
 
     def calc_prob(self, obs):
-        """计算观测序列的似然度
+        """计算观测序列的log似然度
 
         :Parameters:
             - obs: 观测序列O={o1, o2, ... oT}，值为观测集中的值
         """
-        return np.sum(self._forward(obs, True)[-1])
+        return lse(self._forward(obs, True)[-1])
 
     def decode(self, obs):
         """解码最可能的隐藏状态序列
@@ -282,9 +297,9 @@ class HMM:
             xi, gamma = self._baumwelch(obs, alpha, beta)
             model = self._estimate(obs, alpha, beta, xi, gamma)
             # 更新参数
-            prob_old = np.log(np.sum(alpha[-1]))
+            prob_old = lse(alpha[-1])
             self._updatemodel(model)
-            prob_new = np.log(self.calc_prob(obs))
+            prob_new = self.calc_prob(obs)
             # 检测收敛精度
             prod_d = abs(prob_old - prob_new)
             if verbose:
