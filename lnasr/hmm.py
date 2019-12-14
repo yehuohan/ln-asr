@@ -9,6 +9,7 @@ import sys,os
 sys.path.append(os.getcwd() + '/../')
 
 from lnasr.utils import lse
+from typing import Tuple
 import numpy as np
 import h5py
 
@@ -129,7 +130,7 @@ class HMM:
                 beta[t, i] = lse(beta[t+1] + self.A[i, :] + self.b[:, t+1])
         return beta
 
-    def _viterbi(self, obs:np.ndarray, remap:bool=False):
+    def _viterbi(self, obs:np.ndarray, remap:bool=False)->Tuple[np.ndarray]:
         """Viterbi算法
 
         ::
@@ -170,7 +171,7 @@ class HMM:
             path[t] = bt[t+1, path[t+1]]
         return (v, bt, path)
 
-    def _baumwelch(self, obs:np.ndarray, alpha:np.ndarray, beta:np.ndarray, remap:bool=False):
+    def _baumwelch(self, obs:np.ndarray, alpha:np.ndarray, beta:np.ndarray, remap:bool=False)->Tuple[np.ndarray]:
         """Baum-Welch算法（向前向后算法）
 
         :Parameters:
@@ -198,7 +199,7 @@ class HMM:
         gamma = lse(xi, axis=2)
         return xi, gamma
 
-    def _estimate(self, obs:np.ndarray, alpha, beta, xi, gamma):
+    def _estimate(self, obs:np.ndarray, alpha, beta, xi, gamma)->dict:
         """计算Maximization模型新参数
 
         :Parameters:
@@ -223,7 +224,7 @@ class HMM:
         model['pi'] = pi
         return model
 
-    def _updatemodel(self, model):
+    def _updatemodel(self, model:dict):
         """更新模型参数"""
         self.A = model['A']
         self.B = model['B']
@@ -232,7 +233,7 @@ class HMM:
     def reset(self, init_type):
         """初始化训练参数
 
-        :Returns:
+        :Parameters:
             - init_type: 初始化类型，默认全部初始化为零
         """
         if init_type == 'uniform':
@@ -264,7 +265,7 @@ class HMM:
         self.pi = f['pi']
         self.n, self.m = self.B.shape
 
-    def calc_prob(self, obs):
+    def calc_prob(self, obs:np.ndarray)->float:
         """计算观测序列的log似然度
 
         :Parameters:
@@ -272,7 +273,7 @@ class HMM:
         """
         return lse(self._forward(obs, True)[-1])
 
-    def decode(self, obs):
+    def decode(self, obs:np.ndarray)->np.ndarray:
         """解码最可能的隐藏状态序列
 
         :Parameters:
