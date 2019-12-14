@@ -15,8 +15,11 @@ from scipy.fftpack import dct
 
 class MFCC:
     """
-    提取MFCC特征。
+    提取MFCC特征，特征维度D=39。
     """
+
+    D = 39
+
     def __init__(self, fs = 16000,
             frame_T = 25e-3, frame_stride = 10e-3,
             hpf_alpha = 0.97,
