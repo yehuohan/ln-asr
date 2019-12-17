@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import sys,os
-sys.path.append(os.getcwd() + '/../')
+sys.path.append(os.getcwd() + '/../third/pyvad')
 
-from third.pyvad import Vad
+from pyvad import Vad
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
