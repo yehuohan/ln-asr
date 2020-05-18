@@ -22,7 +22,7 @@ from lnasr.utils import *
 from lnasr.mfcc import MFCC
 import numpy as np
 import webrtcvad
-import pysnooper
+import snoop
 
 class VadLtsd:
     """静音检测"""
@@ -46,7 +46,7 @@ class VadLtsd:
         self.alpha = alpha
         self.fft_size = self.winsize // 2 + 1       # 频率使用宽度
 
-    # @pysnooper.snoop()
+    # @snoop.snoop()
     def detect(self, data:np.ndarray) -> np.ndarray:
         """对一段语音进行检测
 
