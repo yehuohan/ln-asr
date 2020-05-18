@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-一些共用函数
+一些常用函数
 """
 
 import numpy as np
