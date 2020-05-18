@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys,os
-sys.path.append(os.getcwd() + '/../third/pyvad')
+sys.path.append(os.getcwd() + '/pyvad')
 
 from pyvad import Vad
 import numpy as np
