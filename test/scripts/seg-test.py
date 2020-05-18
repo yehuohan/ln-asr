@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import sys,os
+sys.path.append(os.getcwd() + '/../../')
+sys.path.append(os.getcwd() + '/../../scripts/seg')
+
 from seg import *
 
 def test_seg_train():
