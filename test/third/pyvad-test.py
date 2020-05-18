@@ -2,8 +2,10 @@
 # -*- coding: utf-8 -*-
 
 import sys,os
-sys.path.append(os.getcwd() + '/pyvad')
+sys.path.append(os.getcwd() + '/../../')
+sys.path.append(os.getcwd() + '/../../third/pyvad')
 
+from lnasr.utils import read_pcm
 from pyvad import Vad
 import numpy as np
 import matplotlib as mpl
@@ -13,8 +15,7 @@ def on_key(event:mpl.backend_bases.KeyEvent):
     if event.key == 'escape':
         plt.close()
 
-with open('data-vad.raw', 'rb') as fp:
-    pdata = np.frombuffer(fp.read(), dtype=np.int16)
+pdata = read_pcm('data-vad.raw')
 
 vad = Vad()
 vad.set_pow_low(100000000.0)

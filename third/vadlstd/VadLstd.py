@@ -8,11 +8,6 @@ Voice Activity Detection.
 
     - `Efficient voice activity detection algorithms using long-term speech information <https://www.sciencedirect.com/science/article/abs/pii/S0167639303001201>`_
     - https://github.com/isrish/VAD-LTSD
-
-:VadWebRTC:
-
-    - https://github.com/wiseman/py-webrtcvad
-
 """
 
 import sys,os
@@ -21,7 +16,6 @@ sys.path.append(os.getcwd() + '/../../')
 from lnasr.utils import *
 from lnasr.mfcc import MFCC
 import numpy as np
-import webrtcvad
 import snoop
 
 class VadLtsd:
@@ -78,23 +72,3 @@ class VadLtsd:
             if None != self.alpha and ltsd[k] < self.threshold:
                 noise = self.alpha*noise + (1-self.alpha)*(np.sum(ltse[k]) / self.winsize)
         return ltsd
-
-def VadWebRTC(data:np.ndarray, freq=16000, frame_length=30e-3, frame_stride=10e-3, mode=0)->np.ndarray:
-    """基于WebRTC进行vad检测
-
-    :Parameters:
-        - data: 语音数据
-        - freq: 语音频率
-        - frame_length: 分帧的时长，可以为10ms, 20ms或30ms
-        - frame_stride: 帧移的时长
-        - mode: WebRTC检测模式，0=Normal，1=low Bitrate，2=Aggressive，3=Very Aggressive
-
-    :Returns: 检测结果数组
-    """
-    frames = split_frames(data, int(freq*frame_length), int(freq*frame_stride))
-    vad = webrtcvad.Vad()
-    vad.set_mode(mode)
-    res = []
-    for f in frames[:]:
-        res.append(vad.is_speech(bytes(f), freq))
-    return np.array(res, dtype=np.uint8)
