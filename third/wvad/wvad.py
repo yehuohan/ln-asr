@@ -581,6 +581,14 @@ class Gmm:
 
 class Vad(Core):
     def __init__(self, kohm1:int, kohm2:int, klt:int, kgt:int):
+        """Vad初始化
+
+        :Parameters:
+            - kohm1 平滑参数（语音连续说话一段时间，则认为之后一定帧数也为说话）
+            - kohm2 平滑参数（语音连续说话一段时间，则认为之后一定帧数也为说话）
+            - klt 子带似然比阈值
+            - kgt 累加似然比阈值
+        """
         super(Vad, self).__init__(kohm1, kohm2, float(klt), float(kgt))
 
     def calc_vad(self, data:np.ndarray)->int:
