@@ -21,31 +21,38 @@ author = 'yehuohan@gmail.com'
 
 
 # -- General configuration ---------------------------------------------------
-
-# Sphinx扩展模块
-extensions = [
+extensions = [ # Sphinx扩展模块
     'sphinx.ext.autodoc',
+    'recommonmark',
 ]
-
-# 模版路径
-templates_path = ['_templates']
-
-# 文档语言
-language = 'zh'
-
-# 忽略的文件和目录
-exclude_patterns = []
-
-# -- Options for HTML output -------------------------------------------------
-
-# 文档主题样式
-html_theme = 'sphinxdoc'
-
-# HTML静态文件(style sheets ...)
-html_static_path = ['_static']
-
-# 文档支持格式
-source_suffix = {
+templates_path = ['_templates'] # 模版路径
+language = 'zh' # 文档语言
+source_suffix = { # 文档支持格式
     '.rst' : 'restructuredtext',
     '.md' : 'markdown',
+}
+exclude_patterns = [] # 忽略的文件和目录
+
+
+# -- Options for HTML output -------------------------------------------------
+html_theme = 'sphinxdoc' # 文档主题样式
+html_static_path = ['_static'] # HTML静态文件(style sheets ...)
+
+
+# -- Options for Latex output ------------------------------------------------
+latex_engine = 'xelatex'
+latex_elements = {
+    'papersize': 'a4paper',
+    'pointsize': '11pt',
+    'extraclassoptions': 'oneside',
+    'preamble': r'''
+\usepackage[titles]{tocloft}
+\usepackage{ctex}
+\setmainfont{Noto Serif}
+\setsansfont{Noto Sans}
+\setmonofont{Noto Sans Mono}
+\setCJKmainfont{Noto Serif CJK SC}
+\setCJKsansfont{Noto Sans CJK SC}
+\setCJKmonofont{Noto Sans Mono CJK SC}
+'''
 }
