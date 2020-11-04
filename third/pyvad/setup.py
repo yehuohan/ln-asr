@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python3
 
 from distutils.core import setup
 from distutils.extension import Extension
@@ -9,6 +8,6 @@ import numpy
 setup(
     ext_modules=cythonize([Extension(
         'pyvad',
-        sources=['pyvad.pyx', 'wb_vad.c'],
-        include_dirs=['.', numpy.get_include()])])
+        sources=['pyvad.pyx', 'src/wb_vad.c'], 
+        include_dirs=['src', numpy.get_include()])])
 )
