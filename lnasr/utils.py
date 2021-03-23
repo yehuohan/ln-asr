@@ -8,6 +8,7 @@
 import numpy as np
 import pyaudio
 import wave
+import librosa
 
 Punctuation_Ascii_Set = {
     '.',
@@ -89,16 +90,12 @@ def recording(time, pcmfile=None, wavefile=None)->np.ndarray:
 def read_wave(filename:str)->np.ndarray:
     """获取wave音频数据和频率
 
-    wave音频为单通道，16bit，小端格式
+    读取wav音频，转成16KHz, 16Bits, 1Ch输出
 
     :Returns: 返回音频序列和频率
     """
-    fp = wave.open(filename, 'rb')
-    wparams = fp.getparams()
-    data = fp.readframes(wparams.nframes * wparams.sampwidth)
-    fp.close()
-    wdata = np.frombuffer(data, dtype=np.int16)
-    return (wdata, wparams.framerate)
+    wdata, sr = librosa.core.load(filename, sr=16000, mono=True)
+    return ((wdata * pow(2, 15)).astype(np.int16), sr)
 
 def read_pcm(filename:str)->np.ndarray:
     """读取PCM语音数据(单通道，16bit，小端)"""
