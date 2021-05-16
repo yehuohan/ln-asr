@@ -6,10 +6,6 @@
 Welcome to ln-asr's documentation!
 ==================================
 
-语音识别基础。
-
-:目录:
-
 ..  toctree::
     :maxdepth: 2
 
